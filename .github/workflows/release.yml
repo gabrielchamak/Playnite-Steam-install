@@ -232,24 +232,17 @@ jobs:
           $ver     = "${{ steps.version.outputs.VERSION }}"
           $date    = (Get-Date).ToString("yyyy-MM-dd")
           $pextUrl = "https://github.com/gabrielchamak/Playnite-Steam-install/releases/download/v$ver/SilentInstall_v$ver.pext"
+          $yaml    = Get-Content installer_manifest.yaml -Raw
 
-          # Read current manifest
-          $yaml = Get-Content installer_manifest.yaml -Raw
-
-          # Check if this version already exists in the manifest
           if ($yaml -notmatch "Version: $ver") {
-            # Build new package entry
-            $newEntry = @"
-  - Version: $ver
-    RequiredApiVersion: 6.10.0
-    ReleaseDate: $date
-    PackageUrl: $pextUrl
-    Changelog:
-      - See GitHub release notes
-"@
-            # Insert after "Packages:" line
-            $yaml = $yaml -replace "(Packages:
-)", "`$1$newEntry"
+            $line1 = "  - Version: $ver"
+            $line2 = "    RequiredApiVersion: 6.10.0"
+            $line3 = "    ReleaseDate: $date"
+            $line4 = "    PackageUrl: $pextUrl"
+            $line5 = "    Changelog:"
+            $line6 = "      - See GitHub release notes"
+            $entry = "$line1`n$line2`n$line3`n$line4`n$line5`n$line6`n"
+            $yaml  = $yaml -replace "(?m)^(Packages:)", "Packages:`n$entry"
             Set-Content installer_manifest.yaml $yaml -NoNewline
           }
 
