@@ -181,7 +181,7 @@ namespace SilentInstall.Installers
                     client.Headers.Add("User-Agent", "Mozilla/5.0");
                     client.Encoding = System.Text.Encoding.UTF8;
                     var json  = client.DownloadString(url);
-                    var match = Regex.Match(json, "\"name\"\s*:\s*\"([^\"]+)\"");
+                    var match = Regex.Match(json, "\"name\"\\s*:\\s*\"([^\"]+)\"");
                     if (match.Success)
                     {
                         var apiName = SanitizeDirectoryName(match.Groups[1].Value);
