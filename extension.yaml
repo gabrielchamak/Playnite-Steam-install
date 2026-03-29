@@ -1,7 +1,7 @@
 Id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
 Name: Silent Install
 Author: scary
-Version: 1.3.0
+Version: 1.2.1
 Module: SilentInstall.dll
 Type: GenericPlugin
 Links:

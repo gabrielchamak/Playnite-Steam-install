@@ -72,7 +72,7 @@ jobs:
 
             ## What's new in v${{ steps.version.outputs.VERSION }}
 
-            ### v1.3.0
+            ### v1.2.1
             - 🛡 Added application manifest and assembly metadata to reduce Windows Defender / SmartScreen false positives
             - 📝 Changelogs are now written in English
 
@@ -118,7 +118,7 @@ jobs:
           body: |
             ## What's new in v${{ steps.version.outputs.VERSION }}
 
-            ### v1.3.0
+            ### v1.2.1
             - 🛡 Added application manifest and assembly metadata to reduce Windows Defender / SmartScreen false positives
             - 📝 Changelogs are now written in English
 
