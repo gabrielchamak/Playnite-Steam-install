@@ -76,6 +76,16 @@ jobs:
 
             ## What's new in v${{ steps.version.outputs.VERSION }}
 
+            ### v1.2.3
+            - 🧹 ACF deleted after successful install — Steam won't auto-reinstall if the game is uninstalled later
+            - 🗑 Uninstall action now uses Playnite's stored install directory (ACF is removed post-install)
+            - 🔢 Fixed missing version number in installer filename (`SilentInstall-Setup-vX.X.X.exe`)
+
+            ### v1.2.2
+            - 🗂 Installer renamed to `SilentInstall-Setup-vX.X.X.exe` for clarity
+            - 📦 Plugin files moved to `payload/` subfolder — cleaner zip structure
+
+            ### v1.2.1
             - 🛡 Added application manifest and assembly metadata to reduce Windows Defender / SmartScreen false positives
             - 📝 Changelogs are now written in English
 
@@ -94,7 +104,7 @@ jobs:
             ## Installation
             1. Download `SilentInstall-v${{ steps.version.outputs.VERSION }}-beta.zip`
             2. Extract the zip anywhere
-            3. Run **`Install.exe`** — it handles everything ✅
+            3. Run **`SilentInstall-Setup-v${{ steps.version.outputs.VERSION }}.exe`** — it handles everything ✅
 
             > **Windows SmartScreen warning?** This is expected for any unsigned executable downloaded from the internet.
             > Click **More info → Run anyway** to proceed. No code signing certificate is currently used.
@@ -121,6 +131,16 @@ jobs:
           body: |
             ## What's new in v${{ steps.version.outputs.VERSION }}
 
+            ### v1.2.3
+            - 🧹 ACF deleted after successful install — Steam won't auto-reinstall if the game is uninstalled later
+            - 🗑 Uninstall action now uses Playnite's stored install directory (ACF is removed post-install)
+            - 🔢 Fixed missing version number in installer filename (`SilentInstall-Setup-vX.X.X.exe`)
+
+            ### v1.2.2
+            - 🗂 Installer renamed to `SilentInstall-Setup-vX.X.X.exe` for clarity
+            - 📦 Plugin files moved to `payload/` subfolder — cleaner zip structure
+
+            ### v1.2.1
             - 🛡 Added application manifest and assembly metadata to reduce Windows Defender / SmartScreen false positives
             - 📝 Changelogs are now written in English
 
@@ -139,7 +159,7 @@ jobs:
             ## Installation
             1. Download `SilentInstall-v${{ steps.version.outputs.VERSION }}.zip`
             2. Extract the zip anywhere
-            3. Run **`Install.exe`** — it handles everything ✅
+            3. Run **`SilentInstall-Setup-v${{ steps.version.outputs.VERSION }}.exe`** — it handles everything ✅
 
             > **Windows SmartScreen warning?** This is expected for any unsigned executable downloaded from the internet.
             > Click **More info → Run anyway** to proceed. No code signing certificate is currently used.
