@@ -67,7 +67,6 @@ namespace SilentInstall
         private readonly PluginSettings _settings;
         private readonly IPlayniteAPI   _api;
         private System.Threading.CancellationTokenSource _cts;
-        private bool _installCompleted = false;
 
         public SilentSteamInstallController(Game game, PluginSettings settings, IPlayniteAPI api)
             : base(game)
@@ -117,6 +116,11 @@ namespace SilentInstall
                         var installDir = dirMatch.Success
                             ? System.IO.Path.Combine(steamApps, "common", dirMatch.Groups[1].Value)
                             : System.IO.Path.Combine(steamApps, "common", gameName);
+
+                        // Delete the ACF so Steam has no trace of this game.
+                        // Without it, Steam won't auto-reinstall the game if it's
+                        // later uninstalled — Playnite tracks the install independently.
+                        try { System.IO.File.Delete(acfPath); } catch { }
 
                         _api.Notifications.Remove(InProgressNotifId);
                         _api.Notifications.Add(new NotificationMessage(
@@ -195,24 +199,16 @@ namespace SilentInstall
         {
             try
             {
-                var acfPath = System.IO.Path.Combine(_settings.SteamAppsPath, $"appmanifest_{Game.GameId}.acf");
-
-                // Read install directory from ACF before deleting it
-                string gameDir = null;
-                if (System.IO.File.Exists(acfPath))
-                {
-                    var content  = System.IO.File.ReadAllText(acfPath);
-                    var dirMatch = System.Text.RegularExpressions.Regex.Match(content, "\"installdir\"\\s*\"([^\"]+)\"");
-                    if (dirMatch.Success)
-                        gameDir = System.IO.Path.Combine(_settings.SteamAppsPath, "common", dirMatch.Groups[1].Value);
-
-                    // Remove the ACF — Steam will no longer track the game as installed
-                    System.IO.File.Delete(acfPath);
-                }
+                // ACF was already deleted after install — use Playnite's stored InstallDirectory
+                var gameDir = Game.InstallDirectory;
 
                 // Delete game files if the folder exists
-                if (gameDir != null && System.IO.Directory.Exists(gameDir))
+                if (!string.IsNullOrEmpty(gameDir) && System.IO.Directory.Exists(gameDir))
                     System.IO.Directory.Delete(gameDir, recursive: true);
+
+                // Also clean up ACF just in case (e.g. partial install that was never completed)
+                var acfPath = System.IO.Path.Combine(_settings.SteamAppsPath, $"appmanifest_{Game.GameId}.acf");
+                try { System.IO.File.Delete(acfPath); } catch { }
 
                 InvokeOnUninstalled(new GameUninstalledEventArgs());
             }
