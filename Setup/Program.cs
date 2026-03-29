@@ -20,15 +20,17 @@ namespace SilentInstallSetup
             Application.SetCompatibleTextRenderingDefault(false);
 
             // ── Locate source files (next to Install.exe) ──────────────────
-            var sourceDir  = AppDomain.CurrentDomain.BaseDirectory;
+            var exeDir     = AppDomain.CurrentDomain.BaseDirectory;
+            var payloadDir = Path.Combine(exeDir, "payload");
+            var sourceDir  = Directory.Exists(payloadDir) ? payloadDir : exeDir;
             var sourceDll  = Path.Combine(sourceDir, "SilentInstall.dll");
             var sourceYaml = Path.Combine(sourceDir, "extension.yaml");
 
             if (!File.Exists(sourceDll) || !File.Exists(sourceYaml))
             {
                 MessageBox.Show(
-                    "Could not find SilentInstall.dll or extension.yaml next to Install.exe.\n\n" +
-                    "Make sure you extracted the full zip before running the installer.",
+                    "Could not find the plugin files.\n\n" +
+                    "Make sure you extracted the full zip without changing its structure before running the installer.",
                     "Silent Install Setup — Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;

@@ -40,10 +40,13 @@ jobs:
 
       - name: Package dist
         run: |
-          New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item "bin\Release\net462\SilentInstall.dll"     dist\
-          Copy-Item "extension.yaml"                            dist\
-          Copy-Item "Setup\bin\Release\net462\Install.exe"     dist\
+          New-Item -ItemType Directory -Force -Path dist          | Out-Null
+          New-Item -ItemType Directory -Force -Path dist\payload  | Out-Null
+          # Plugin files go into payload/ — read by the installer, invisible to the user
+          Copy-Item "bin\Release\net462\SilentInstall.dll"  dist\payload\
+          Copy-Item "extension.yaml"                            dist\payload\
+          # Installer at root, named with version for clarity
+          Copy-Item "Setup\bin\Release\net462\Install.exe" "dist\SilentInstall-Setup-v${{ steps.version.outputs.VERSION }}.exe"
 
       - name: Read version from extension.yaml
         id: version
@@ -72,7 +75,6 @@ jobs:
 
             ## What's new in v${{ steps.version.outputs.VERSION }}
 
-            ### v1.2.1
             - 🛡 Added application manifest and assembly metadata to reduce Windows Defender / SmartScreen false positives
             - 📝 Changelogs are now written in English
 
@@ -118,7 +120,6 @@ jobs:
           body: |
             ## What's new in v${{ steps.version.outputs.VERSION }}
 
-            ### v1.2.1
             - 🛡 Added application manifest and assembly metadata to reduce Windows Defender / SmartScreen false positives
             - 📝 Changelogs are now written in English
 
