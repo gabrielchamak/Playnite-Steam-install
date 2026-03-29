@@ -233,20 +233,22 @@ namespace SilentInstall
         }
 
         /// <summary>
-        /// Tracks real download progress by measuring steamapps/downloading/appid/ folder size.
-        /// Steam writes compressed chunks there in real-time; BytesToDownload is the total compressed size.
-        /// Falls back to ACF BytesDownloaded (checkpoint value) as a secondary source.
+        /// Shows download activity by measuring steamapps/downloading/appid/ folder size in real-time.
+        ///
+        /// A percentage is NOT shown because BytesToDownload (compressed) and the folder
+        /// contents (decompressed) are different units — their ratio is always misleading.
+        /// Instead, we show GB written to disk so the user can see real progress without
+        /// a false percentage.
         /// </summary>
         private void TryUpdateProgress(string acfContent, string gameName, ref int lastPct)
         {
+            // Get total download size (compressed) for display
             var totalMatch = System.Text.RegularExpressions.Regex.Match(acfContent, "\"BytesToDownload\"\\s*\"(\\d+)\"");
-            if (!totalMatch.Success) return;
-            var total = long.Parse(totalMatch.Groups[1].Value);
-            if (total <= 0) return;
-            var totalGb = total / 1_073_741_824.0;
+            var totalGbStr = totalMatch.Success
+                ? $" / ~{long.Parse(totalMatch.Groups[1].Value) / 1_073_741_824.0:F1} GB"
+                : string.Empty;
 
-            // ── Measure the downloading/ staging folder in real-time ──────────
-            // Steam writes to steamapps/downloading/<appid>/ on ANY library (default or secondary).
+            // Measure staging folder (decompressed writes) — grows live during download
             var downloadingInLib = System.IO.Path.Combine(_targetLibraryPath, "downloading", Game.GameId);
             var steamRoot        = GetSteamRootFromRegistry();
             var downloadingInDef = steamRoot != null
@@ -256,37 +258,21 @@ namespace SilentInstall
             long folderBytesDef = downloadingInDef != null ? GetDirectorySize(downloadingInDef) : 0L;
             long folderBytes    = Math.Max(folderBytesLib, folderBytesDef);
 
-            // ── Fallback: ACF BytesDownloaded (Steam checkpoint value) ────────
-            var dlMatch = System.Text.RegularExpressions.Regex.Match(acfContent, "\"BytesDownloaded\"\\s*\"(\\d+)\"");
-            long acfDownloaded = dlMatch.Success ? long.Parse(dlMatch.Groups[1].Value) : 0L;
+            var writtenGb = folderBytes / 1_073_741_824.0;
 
-            long downloaded = Math.Max(folderBytes, acfDownloaded);
+            // Bucket to nearest 0.1 GB to avoid notification spam on every byte change
+            int bucket = (int)(writtenGb * 10);
+            if (bucket == lastPct) return;
+            lastPct = bucket;
 
-            SilentLogger.Info($"[{gameName}] Scan — lib={folderBytesLib} def={folderBytesDef} acf={acfDownloaded} total={total}");
+            SilentLogger.Info($"[{gameName}] Progress: {writtenGb:F2} GB written (lib={folderBytesLib} def={folderBytesDef})");
 
-            if (downloaded <= 0)
-            {
-                if (lastPct == -1)
-                {
-                    lastPct = 0;
-                    _api.Notifications.Remove(InProgressNotifId);
-                    _api.Notifications.Add(new NotificationMessage(
-                        InProgressNotifId,
-                        $"⬇ {gameName} — downloading…  ({totalGb:F1} GB total)",
-                        NotificationType.Info));
-                }
-                return;
-            }
-
-            var pct = Math.Min(99, (int)(downloaded * 100L / total));
-            if (pct == lastPct) return;
-            lastPct = pct;
-            var dlGb = downloaded / 1_073_741_824.0;
-            SilentLogger.Info($"[{gameName}] Progress: {pct}% ({dlGb:F2} / {totalGb:F2} GB)");
             _api.Notifications.Remove(InProgressNotifId);
             _api.Notifications.Add(new NotificationMessage(
                 InProgressNotifId,
-                $"⬇ {gameName} — {pct}%  ({dlGb:F1} / {totalGb:F1} GB)",
+                folderBytes > 0
+                    ? $"⬇ {gameName} — {writtenGb:F1} GB written{totalGbStr}"
+                    : $"⬇ {gameName} — downloading…{totalGbStr}",
                 NotificationType.Info));
         }
 
