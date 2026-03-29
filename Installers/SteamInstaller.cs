@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using Microsoft.Win32;
 using Playnite.SDK;
+using Playnite.SDK;
 using Playnite.SDK.Models;
 using SilentInstall.Settings;
 
@@ -34,22 +35,40 @@ namespace SilentInstall.Installers
         /// 2. Creates an appmanifest file with StateFlags=1026
         /// 3. Restarts Steam silently so it picks up the new manifest
         /// </summary>
-        public static void Install(Game game, PluginSettings settings, IPlayniteAPI api)
+        /// <param name="targetLibraryPath">
+        /// Steamapps folder to install into. Falls back to settings.SteamAppsPath if null.
+        /// </param>
+        public static void Install(Game game, PluginSettings settings, IPlayniteAPI api,
+                                   string targetLibraryPath = null)
         {
             try
             {
-                ValidateSettings(settings);
+                var libraryPath = !string.IsNullOrEmpty(targetLibraryPath)
+                    ? targetLibraryPath
+                    : settings.SteamAppsPath;
+
+                SilentLogger.Info($"[{game.Name}] Preparing install in: {libraryPath}");
+                ValidateLibraryPath(libraryPath);
 
                 // Make sure this library is registered in Steam's libraryfolders.vdf
-                EnsureSteamLibraryRegistered(settings.SteamAppsPath);
+                EnsureSteamLibraryRegistered(libraryPath);
 
-                var acfPath    = Path.Combine(settings.SteamAppsPath, $"appmanifest_{game.GameId}.acf");
+                var acfPath    = Path.Combine(libraryPath, $"appmanifest_{game.GameId}.acf");
                 var installDir = FetchInstallDirFromSteamApi(game.GameId, game.Name);
 
-                if (File.Exists(acfPath)) return; // already in progress
+                SilentLogger.Info($"[{game.Name}] installdir resolved to: {installDir}");
+
+                if (File.Exists(acfPath))
+                {
+                    SilentLogger.Warn($"[{game.Name}] ACF already exists — install already in progress.");
+                    return;
+                }
 
                 WriteAppManifest(acfPath, game.GameId, installDir);
+                SilentLogger.Info($"[{game.Name}] ACF written: {acfPath}");
+
                 RestartSteamSilently();
+                SilentLogger.Info($"[{game.Name}] Steam restarted silently.");
 
                 api.Notifications.Add(new NotificationMessage(
                     $"si-steam-{game.GameId}",
@@ -58,6 +77,7 @@ namespace SilentInstall.Installers
             }
             catch (Exception ex)
             {
+                SilentLogger.Error($"[{game.Name}] Install failed", ex);
                 api.Notifications.Add(new NotificationMessage(
                     $"si-steam-err-{game.GameId}",
                     $"Silent Install error: {ex.Message}",
@@ -67,15 +87,15 @@ namespace SilentInstall.Installers
 
         // ── Private helpers ───────────────────────────────────────────────
 
-        private static void ValidateSettings(PluginSettings settings)
+        private static void ValidateLibraryPath(string libraryPath)
         {
-            if (string.IsNullOrWhiteSpace(settings.SteamAppsPath))
+            if (string.IsNullOrWhiteSpace(libraryPath))
                 throw new InvalidOperationException(
                     "Steam library path is not configured. Open plugin settings and select a steamapps folder.");
 
-            if (!Directory.Exists(settings.SteamAppsPath))
+            if (!Directory.Exists(libraryPath))
                 throw new InvalidOperationException(
-                    $"steamapps folder not found: {settings.SteamAppsPath}");
+                    $"steamapps folder not found: {libraryPath}");
         }
 
         /// <summary>

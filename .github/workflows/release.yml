@@ -76,6 +76,11 @@ jobs:
 
             ## What's new in v${{ steps.version.outputs.VERSION }}
 
+            ### v1.2.4
+            - 📂 Library picker at install time — choose which Steam library to install to when multiple are available
+            - 📊 Real download progress — notification updates with percentage and GB downloaded/total
+            - 📋 Dedicated log file — `SilentInstall.log` in the plugin data directory (rotates at 1 MB)
+
             ### v1.2.3
             - 🧹 ACF deleted after successful install — Steam won't auto-reinstall if the game is uninstalled later
             - 🗑 Uninstall action now uses Playnite's stored install directory (ACF is removed post-install)
@@ -130,6 +135,11 @@ jobs:
           make_latest: true
           body: |
             ## What's new in v${{ steps.version.outputs.VERSION }}
+
+            ### v1.2.4
+            - 📂 Library picker at install time — choose which Steam library to install to when multiple are available
+            - 📊 Real download progress — notification updates with percentage and GB downloaded/total
+            - 📋 Dedicated log file — `SilentInstall.log` in the plugin data directory (rotates at 1 MB)
 
             ### v1.2.3
             - 🧹 ACF deleted after successful install — Steam won't auto-reinstall if the game is uninstalled later

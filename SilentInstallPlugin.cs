@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows.Controls;
 using Playnite.SDK;
 using Playnite.SDK.Models;
@@ -19,6 +20,7 @@ namespace SilentInstall
         {
             _settings  = new PluginSettings(this);
             Properties = new GenericPluginProperties { HasSettings = true };
+            SilentLogger.Initialize(GetPluginUserDataPath());
         }
 
         public override IEnumerable<InstallController> GetInstallActions(GetInstallActionsArgs args)
@@ -45,7 +47,7 @@ namespace SilentInstall
 
             yield return new GameMenuItem
             {
-                Description  = isSteam ? "Install silently (Steam)" : "Install silently (Epic)",
+                Description = isSteam ? "Install silently (Steam)" : "Install silently (Epic)",
                 MenuSection  = "Silent Install",
                 Action       = _ =>
                 {
@@ -63,10 +65,12 @@ namespace SilentInstall
 
     public class SilentSteamInstallController : InstallController
     {
-        private static readonly ILogger Log = LogManager.GetLogger();
         private readonly PluginSettings _settings;
         private readonly IPlayniteAPI   _api;
         private System.Threading.CancellationTokenSource _cts;
+
+        /// <summary>Library path chosen by the user at install time (may differ from settings default).</summary>
+        private string _targetLibraryPath;
 
         public SilentSteamInstallController(Game game, PluginSettings settings, IPlayniteAPI api)
             : base(game)
@@ -78,23 +82,65 @@ namespace SilentInstall
 
         public override void Install(InstallActionArgs args)
         {
-            SteamInstaller.Install(Game, _settings, _api);
+            // Let the user pick a library if multiple are available
+            _targetLibraryPath = SelectLibrary();
+            if (_targetLibraryPath == null)
+            {
+                // User cancelled the dialog — abort silently
+                SilentLogger.Info($"[{Game.Name}] Install cancelled by user at library selection.");
+                return;
+            }
+
+            SilentLogger.Info($"[{Game.Name}] Install started → {_targetLibraryPath}");
+            SteamInstaller.Install(Game, _settings, _api, _targetLibraryPath);
+
             _cts = new System.Threading.CancellationTokenSource();
             StartMonitoring(_cts.Token);
+        }
+
+        /// <summary>
+        /// Shows a library picker if multiple Steam libraries are available.
+        /// Returns the chosen path, or the default if only one library exists.
+        /// Returns null if the user cancelled.
+        /// </summary>
+        private string SelectLibrary()
+        {
+            var libs = _settings.DetectedSteamLibraries;
+
+            // Single library — no dialog needed
+            if (libs.Count <= 1)
+                return _settings.SteamAppsPath;
+
+            var options = libs
+                .Select(l => new GenericItemOption(l.Label, l.Path))
+                .ToList();
+
+            var chosen = _api.Dialogs.ChooseItemWithSearch(
+                options,
+                search => string.IsNullOrEmpty(search)
+                    ? options
+                    : options.Where(o =>
+                        o.Name.IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0).ToList(),
+                string.Empty,
+                "Silent Install — Choose a Steam library");
+
+            // Description holds the path (set via GenericItemOption ctor)
+            return chosen?.Description;
         }
 
         private string InProgressNotifId => $"si-steam-{Game.GameId}";
 
         private void StartMonitoring(System.Threading.CancellationToken token)
         {
-            var acfPath   = System.IO.Path.Combine(_settings.SteamAppsPath, $"appmanifest_{Game.GameId}.acf");
-            var steamApps = _settings.SteamAppsPath;
+            var acfPath   = System.IO.Path.Combine(_targetLibraryPath, $"appmanifest_{Game.GameId}.acf");
+            var steamApps = _targetLibraryPath;
             var gameName  = Game.Name;
 
             System.Threading.Tasks.Task.Run(() =>
             {
-                var deadline    = DateTime.Now.AddHours(24);
-                int errorStreak = 0;
+                var deadline        = DateTime.Now.AddHours(24);
+                int errorStreak     = 0;
+                int lastReportedPct = -1;
                 const int maxStreak = 12; // ~1 min of consecutive errors
 
                 while (!token.IsCancellationRequested && DateTime.Now < deadline)
@@ -106,21 +152,32 @@ namespace SilentInstall
                         if (!System.IO.File.Exists(acfPath)) { errorStreak = 0; continue; }
 
                         var content   = System.IO.File.ReadAllText(acfPath);
-                        var flagMatch = System.Text.RegularExpressions.Regex.Match(content, "\"StateFlags\"\\s*\"(\\d+)\"");
+                        var flagMatch = System.Text.RegularExpressions.Regex.Match(
+                            content, "\"StateFlags\"\\s*\"(\\d+)\"");
 
                         if (!flagMatch.Success) { errorStreak = 0; continue; }
-                        if (int.Parse(flagMatch.Groups[1].Value) != 4) { errorStreak = 0; continue; }
 
-                        // StateFlags=4 — fully installed
-                        var dirMatch   = System.Text.RegularExpressions.Regex.Match(content, "\"installdir\"\\s*\"([^\"]+)\"");
+                        var stateFlags = int.Parse(flagMatch.Groups[1].Value);
+
+                        // ── Download in progress — show real percentage ───────
+                        if (stateFlags != 4)
+                        {
+                            errorStreak = 0;
+                            TryUpdateProgress(content, gameName, ref lastReportedPct);
+                            continue;
+                        }
+
+                        // ── StateFlags=4 — fully installed ───────────────────
+                        var dirMatch   = System.Text.RegularExpressions.Regex.Match(
+                            content, "\"installdir\"\\s*\"([^\"]+)\"");
                         var installDir = dirMatch.Success
                             ? System.IO.Path.Combine(steamApps, "common", dirMatch.Groups[1].Value)
                             : System.IO.Path.Combine(steamApps, "common", gameName);
 
-                        // Delete the ACF so Steam has no trace of this game.
-                        // Without it, Steam won't auto-reinstall the game if it's
-                        // later uninstalled — Playnite tracks the install independently.
+                        // Delete ACF — Steam won't auto-reinstall if the game is later uninstalled
                         try { System.IO.File.Delete(acfPath); } catch { }
+
+                        SilentLogger.Info($"[{gameName}] Installation complete → {installDir}");
 
                         _api.Notifications.Remove(InProgressNotifId);
                         _api.Notifications.Add(new NotificationMessage(
@@ -134,9 +191,11 @@ namespace SilentInstall
                         });
                         return;
                     }
-                    catch
+                    catch (Exception ex)
                     {
                         errorStreak++;
+                        SilentLogger.Error($"[{gameName}] Monitoring error (streak {errorStreak})", ex);
+
                         if (errorStreak == maxStreak)
                             _api.Notifications.Add(new NotificationMessage(
                                 $"si-steam-warn-{Game.GameId}",
@@ -145,8 +204,10 @@ namespace SilentInstall
                     }
                 }
 
+                // ── Timeout ───────────────────────────────────────────────────
                 if (!token.IsCancellationRequested)
                 {
+                    SilentLogger.Warn($"[{gameName}] Monitoring timed out after 24 h.");
                     _api.Notifications.Remove(InProgressNotifId);
                     _api.Notifications.Add(new NotificationMessage(
                         $"si-steam-timeout-{Game.GameId}",
@@ -157,21 +218,58 @@ namespace SilentInstall
             }, token);
         }
 
+        /// <summary>
+        /// Reads BytesDownloaded / BytesToDownload from the ACF and updates
+        /// the in-progress notification with a percentage + GB progress.
+        /// Only fires when the percentage actually changes to avoid notification spam.
+        /// </summary>
+        private void TryUpdateProgress(string acfContent, string gameName, ref int lastPct)
+        {
+            var dlMatch    = System.Text.RegularExpressions.Regex.Match(acfContent, "\"BytesDownloaded\"\\s*\"(\\d+)\"");
+            var totalMatch = System.Text.RegularExpressions.Regex.Match(acfContent, "\"BytesToDownload\"\\s*\"(\\d+)\"");
+
+            if (!dlMatch.Success || !totalMatch.Success) return;
+
+            var downloaded = long.Parse(dlMatch.Groups[1].Value);
+            var total      = long.Parse(totalMatch.Groups[1].Value);
+
+            if (total <= 0) return;
+
+            var pct = (int)(downloaded * 100L / total);
+            if (pct == lastPct) return; // no change — skip update
+
+            lastPct = pct;
+            var dlGb    = downloaded / 1_073_741_824.0;
+            var totalGb = total      / 1_073_741_824.0;
+
+            SilentLogger.Info($"[{gameName}] Progress: {pct}% ({dlGb:F2} / {totalGb:F2} GB)");
+
+            _api.Notifications.Remove(InProgressNotifId);
+            _api.Notifications.Add(new NotificationMessage(
+                InProgressNotifId,
+                $"⬇ {gameName} — {pct}%  ({dlGb:F1} / {totalGb:F1} GB)",
+                NotificationType.Info));
+        }
+
         public override void Dispose()
         {
             _cts?.Cancel();
 
-            // If the install was cancelled before Steam picked it up (StateFlags still 1026),
-            // delete the partial ACF so Steam doesn't re-queue the download on next startup.
+            // Clean up ACF if the install was cancelled before completing
+            var lib     = _targetLibraryPath ?? _settings.SteamAppsPath;
+            var acfPath = System.IO.Path.Combine(lib, $"appmanifest_{Game.GameId}.acf");
             try
             {
-                var acfPath = System.IO.Path.Combine(_settings.SteamAppsPath, $"appmanifest_{Game.GameId}.acf");
                 if (System.IO.File.Exists(acfPath))
                 {
                     var content   = System.IO.File.ReadAllText(acfPath);
-                    var flagMatch = System.Text.RegularExpressions.Regex.Match(content, "\"StateFlags\"\\s*\"(\\d+)\"");
+                    var flagMatch = System.Text.RegularExpressions.Regex.Match(
+                        content, "\"StateFlags\"\\s*\"(\\d+)\"");
                     if (flagMatch.Success && flagMatch.Groups[1].Value == "1026")
+                    {
                         System.IO.File.Delete(acfPath);
+                        SilentLogger.Info($"[{Game.Name}] Cancelled — ACF cleaned up.");
+                    }
                 }
             }
             catch { /* non-critical */ }
@@ -199,21 +297,26 @@ namespace SilentInstall
         {
             try
             {
-                // ACF was already deleted after install — use Playnite's stored InstallDirectory
+                SilentLogger.Info($"[{Game.Name}] Uninstall started.");
+
+                // ACF is already deleted post-install — use Playnite's stored install directory
                 var gameDir = Game.InstallDirectory;
-
-                // Delete game files if the folder exists
                 if (!string.IsNullOrEmpty(gameDir) && System.IO.Directory.Exists(gameDir))
+                {
                     System.IO.Directory.Delete(gameDir, recursive: true);
+                    SilentLogger.Info($"[{Game.Name}] Game directory deleted: {gameDir}");
+                }
 
-                // Also clean up ACF just in case (e.g. partial install that was never completed)
+                // Safety net — delete ACF in case of a partial/failed install
                 var acfPath = System.IO.Path.Combine(_settings.SteamAppsPath, $"appmanifest_{Game.GameId}.acf");
                 try { System.IO.File.Delete(acfPath); } catch { }
 
+                SilentLogger.Info($"[{Game.Name}] Uninstall complete.");
                 InvokeOnUninstalled(new GameUninstalledEventArgs());
             }
             catch (Exception ex)
             {
+                SilentLogger.Error($"[{Game.Name}] Uninstall failed", ex);
                 _api.Notifications.Add(new NotificationMessage(
                     $"si-steam-uninstall-err-{Game.GameId}",
                     $"⚠ Failed to uninstall {Game.Name}: {ex.Message}",
