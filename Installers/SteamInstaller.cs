@@ -53,7 +53,7 @@ namespace SilentInstall.Installers
 
                 api.Notifications.Add(new NotificationMessage(
                     $"si-steam-{game.GameId}",
-                    $"⬇ {game.Name} — download started in Steam.",
+                    $"⬇ {game.Name} — queued in Steam. Monitoring until complete…",
                     NotificationType.Info));
             }
             catch (Exception ex)

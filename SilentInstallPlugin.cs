@@ -101,15 +101,22 @@ namespace SilentInstall
             StartMonitoring(_cts.Token);
         }
 
+        // Shared notification ID for the "in-progress" banner — kept consistent so
+        // we can remove it precisely when install finishes or fails.
+        private string InProgressNotifId => $"si-steam-{Game.GameId}";
+
         private void StartMonitoring(System.Threading.CancellationToken token)
         {
             var acfPath   = System.IO.Path.Combine(_settings.SteamAppsPath, $"appmanifest_{Game.GameId}.acf");
             var steamApps = _settings.SteamAppsPath;
+            var gameName  = Game.Name;
 
             System.Threading.Tasks.Task.Run(() =>
             {
                 // Poll every 5 seconds for up to 24 hours
-                var deadline = DateTime.Now.AddHours(24);
+                var deadline      = DateTime.Now.AddHours(24);
+                int errorStreak   = 0;
+                const int maxStreak = 12; // ~1 minute of consecutive errors → report
 
                 while (!token.IsCancellationRequested && DateTime.Now < deadline)
                 {
@@ -117,19 +124,26 @@ namespace SilentInstall
 
                     try
                     {
-                        if (!System.IO.File.Exists(acfPath)) continue;
+                        if (!System.IO.File.Exists(acfPath)) { errorStreak = 0; continue; }
 
                         var content   = System.IO.File.ReadAllText(acfPath);
                         var flagMatch = System.Text.RegularExpressions.Regex.Match(content, "\"StateFlags\"\\s*\"(\\d+)\"");
 
-                        if (!flagMatch.Success) continue;
-                        if (int.Parse(flagMatch.Groups[1].Value) != 4) continue;
+                        if (!flagMatch.Success) { errorStreak = 0; continue; }
+                        if (int.Parse(flagMatch.Groups[1].Value) != 4) { errorStreak = 0; continue; }
 
-                        // StateFlags=4 means fully installed
+                        // ── StateFlags=4 → fully installed ───────────────────────
                         var dirMatch   = System.Text.RegularExpressions.Regex.Match(content, "\"installdir\"\\s*\"([^\"]+)\"");
                         var installDir = dirMatch.Success
                             ? System.IO.Path.Combine(steamApps, "common", dirMatch.Groups[1].Value)
-                            : System.IO.Path.Combine(steamApps, "common", Game.Name);
+                            : System.IO.Path.Combine(steamApps, "common", gameName);
+
+                        // Replace the "in progress" banner with a "done" banner
+                        _api.Notifications.Remove(InProgressNotifId);
+                        _api.Notifications.Add(new NotificationMessage(
+                            $"si-steam-done-{Game.GameId}",
+                            $"✅ {gameName} — installation complete. Ready to play!",
+                            NotificationType.Info));
 
                         // Notify Playnite — let the Steam library plugin handle sync
                         InvokeOnInstalled(new GameInstalledEventArgs
@@ -138,8 +152,32 @@ namespace SilentInstall
                         });
                         return;
                     }
-                    catch { /* retry on next poll */ }
+                    catch
+                    {
+                        errorStreak++;
+                        if (errorStreak == maxStreak)
+                        {
+                            // Persistent read errors — warn the user but keep trying
+                            _api.Notifications.Add(new NotificationMessage(
+                                $"si-steam-warn-{Game.GameId}",
+                                $"⚠ {gameName} — trouble reading the appmanifest. Still monitoring…",
+                                NotificationType.Error));
+                        }
+                    }
                 }
+
+                // ── Loop exited without completing ───────────────────────────────
+                if (!token.IsCancellationRequested)
+                {
+                    // 24-hour timeout reached
+                    _api.Notifications.Remove(InProgressNotifId);
+                    _api.Notifications.Add(new NotificationMessage(
+                        $"si-steam-timeout-{Game.GameId}",
+                        $"⚠ {gameName} — monitoring stopped after 24 h. Check Steam's download queue.",
+                        NotificationType.Error));
+                }
+                // If cancelled, the user explicitly cancelled — no notification needed.
+
             }, token);
         }
 
