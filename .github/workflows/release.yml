@@ -86,60 +86,19 @@ jobs:
 
             ## What's new in v${{ steps.version.outputs.VERSION }}
 
-            ### v1.2.5
-            - 🌐 Fixed install directory corruption for non-English games (e.g. Hogwarts Legacy showing Cyrillic) — Steam API now forced to English (`cc=us&l=english`)
-            - 🔧 Fixed UTF-8 encoding on Steam API response
-
-            ### v1.2.5
-            - ⚡ Steam no longer restarts if not needed — plugin now tries to trigger the download silently via `steam://open/downloads` first; only restarts Steam if no activity is detected after 20 seconds
-
-            ### v1.2.4
-            - 📂 Library picker at install time — choose which Steam library to install to when multiple are available
-            - 📊 Real download progress — notification updates with percentage and GB downloaded/total
-            - 📋 Dedicated log file — `SilentInstall.log` in the plugin data directory (rotates at 1 MB)
-
-            ### v1.2.5
-            - 🌐 Fixed install directory corruption for non-English games (e.g. Hogwarts Legacy showing Cyrillic) — Steam API now forced to English (`cc=us&l=english`)
-            - 🔧 Fixed UTF-8 encoding on Steam API response
-
-            ### v1.2.5
-            - ⚡ Steam no longer restarts if not needed — plugin now tries to trigger the download silently via `steam://open/downloads` first; only restarts Steam if no activity is detected after 20 seconds
-
-            ### v1.2.4
-            - 📊 Real download progress using `steamapps/downloading/<appid>/` folder size vs `BytesToDownload` — updates live every 5 seconds instead of being stuck at 0%
-
-            ### v1.2.3
-            - 🧹 ACF deleted after successful install — Steam won't auto-reinstall if the game is uninstalled later
-            - 🗑 Uninstall action now uses Playnite's stored install directory (ACF is removed post-install)
-            - 🔢 Fixed missing version number in installer filename (`SilentInstall-Setup-vX.X.X.exe`)
-
-            ### v1.2.2
-            - 🗂 Installer renamed to `SilentInstall-Setup-vX.X.X.exe` for clarity
-            - 📦 Plugin files moved to `payload/` subfolder — cleaner zip structure
-
-            ### v1.2.1
-            - 🛡 Added application manifest and assembly metadata to reduce Windows Defender / SmartScreen false positives
-            - 📝 Changelogs are now written in English
-
-            ### v1.2.0
-            - 🚀 `Install.exe` — bundled installer, auto-detects the Playnite Extensions folder, handles both fresh installs and upgrades
-
-            ### v1.1.0
-            - ⬇ Notification when a download is queued in Steam
-            - ✅ Notification when installation is complete (removes the in-progress banner)
-            - ⚠ Warning notification if the appmanifest is unreadable for more than 1 minute
-            - ⚠ Timeout notification after 24 h of monitoring with no result
-            - 🤖 CI/CD pipeline — releases are published automatically on every push
+            - ⚡ No-restart trigger — tries `steam://open/downloads` first, falls back to Steam restart after 20 s
+            - 🗑 Removed custom uninstall button — defers to Playnite/Steam native uninstall
+            - 🎮 Playnite addon browser compatibility — `.pext` package, corrected metadata
 
             ---
 
             ## Installation
             1. Download `SilentInstall-v${{ steps.version.outputs.VERSION }}-beta.zip`
             2. Extract the zip anywhere
-            3. Run **`SilentInstall-Setup-v${{ steps.version.outputs.VERSION }}.exe`** — it handles everything ✅
+            3. Run **`SilentInstall-Setup-v${{ steps.version.outputs.VERSION }}.exe`** ✅
 
-            > **Windows SmartScreen warning?** This is expected for any unsigned executable downloaded from the internet.
-            > Click **More info → Run anyway** to proceed. No code signing certificate is currently used.
+            > **Windows SmartScreen warning?** Click **More info → Run anyway**.
+            > No code signing certificate is currently used.
 
             > Manual install: copy `SilentInstall.dll` and `extension.yaml` to `%APPDATA%\Playnite\Extensions\SilentInstall\`
           files: |
@@ -165,60 +124,19 @@ jobs:
           body: |
             ## What's new in v${{ steps.version.outputs.VERSION }}
 
-            ### v1.2.5
-            - 🌐 Fixed install directory corruption for non-English games (e.g. Hogwarts Legacy showing Cyrillic) — Steam API now forced to English (`cc=us&l=english`)
-            - 🔧 Fixed UTF-8 encoding on Steam API response
-
-            ### v1.2.5
-            - ⚡ Steam no longer restarts if not needed — plugin now tries to trigger the download silently via `steam://open/downloads` first; only restarts Steam if no activity is detected after 20 seconds
-
-            ### v1.2.4
-            - 📂 Library picker at install time — choose which Steam library to install to when multiple are available
-            - 📊 Real download progress — notification updates with percentage and GB downloaded/total
-            - 📋 Dedicated log file — `SilentInstall.log` in the plugin data directory (rotates at 1 MB)
-
-            ### v1.2.5
-            - 🌐 Fixed install directory corruption for non-English games (e.g. Hogwarts Legacy showing Cyrillic) — Steam API now forced to English (`cc=us&l=english`)
-            - 🔧 Fixed UTF-8 encoding on Steam API response
-
-            ### v1.2.5
-            - ⚡ Steam no longer restarts if not needed — plugin now tries to trigger the download silently via `steam://open/downloads` first; only restarts Steam if no activity is detected after 20 seconds
-
-            ### v1.2.4
-            - 📊 Real download progress using `steamapps/downloading/<appid>/` folder size vs `BytesToDownload` — updates live every 5 seconds instead of being stuck at 0%
-
-            ### v1.2.3
-            - 🧹 ACF deleted after successful install — Steam won't auto-reinstall if the game is uninstalled later
-            - 🗑 Uninstall action now uses Playnite's stored install directory (ACF is removed post-install)
-            - 🔢 Fixed missing version number in installer filename (`SilentInstall-Setup-vX.X.X.exe`)
-
-            ### v1.2.2
-            - 🗂 Installer renamed to `SilentInstall-Setup-vX.X.X.exe` for clarity
-            - 📦 Plugin files moved to `payload/` subfolder — cleaner zip structure
-
-            ### v1.2.1
-            - 🛡 Added application manifest and assembly metadata to reduce Windows Defender / SmartScreen false positives
-            - 📝 Changelogs are now written in English
-
-            ### v1.2.0
-            - 🚀 `Install.exe` — bundled installer, auto-detects the Playnite Extensions folder, handles both fresh installs and upgrades
-
-            ### v1.1.0
-            - ⬇ Notification when a download is queued in Steam
-            - ✅ Notification when installation is complete (removes the in-progress banner)
-            - ⚠ Warning notification if the appmanifest is unreadable for more than 1 minute
-            - ⚠ Timeout notification after 24 h of monitoring with no result
-            - 🤖 CI/CD pipeline — releases are published automatically on every push
+            - ⚡ No-restart trigger — tries `steam://open/downloads` first, falls back to Steam restart after 20 s
+            - 🗑 Removed custom uninstall button — defers to Playnite/Steam native uninstall
+            - 🎮 Playnite addon browser compatibility — `.pext` package, corrected metadata
 
             ---
 
             ## Installation
             1. Download `SilentInstall-v${{ steps.version.outputs.VERSION }}.zip`
             2. Extract the zip anywhere
-            3. Run **`SilentInstall-Setup-v${{ steps.version.outputs.VERSION }}.exe`** — it handles everything ✅
+            3. Run **`SilentInstall-Setup-v${{ steps.version.outputs.VERSION }}.exe`** ✅
 
-            > **Windows SmartScreen warning?** This is expected for any unsigned executable downloaded from the internet.
-            > Click **More info → Run anyway** to proceed. No code signing certificate is currently used.
+            > **Windows SmartScreen warning?** Click **More info → Run anyway**.
+            > No code signing certificate is currently used.
 
             > Manual install: copy `SilentInstall.dll` and `extension.yaml` to `%APPDATA%\Playnite\Extensions\SilentInstall\`
           files: |
