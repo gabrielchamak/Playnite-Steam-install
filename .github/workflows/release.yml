@@ -45,12 +45,6 @@ jobs:
           $ver  = $line -replace '^Version:\s*', ''
           echo "VERSION=$ver" >> $env:GITHUB_OUTPUT
 
-      - name: Read version from extension.yaml
-        id: version
-        run: |
-          $line = Get-Content extension.yaml | Where-Object { $_ -match '^Version:' }
-          $ver  = $line -replace '^Version:\s*', ''
-          echo "VERSION=$ver" >> $env:GITHUB_OUTPUT
 
       - name: Package dist
         run: |
