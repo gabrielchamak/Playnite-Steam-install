@@ -68,28 +68,35 @@ jobs:
           name: "Silent Install v${{ steps.version.outputs.VERSION }} — Beta"
           prerelease: true
           body: |
-            > ⚠️ **Pre-release** — build automatique depuis `dev`. Non destiné à la production.
+            > ⚠️ **Pre-release** — automated build from `dev`. Not intended for production use.
 
             ## What's new in v${{ steps.version.outputs.VERSION }}
 
+            ### v1.3.0
+            - 🛡 Added application manifest and assembly metadata to reduce Windows Defender / SmartScreen false positives
+            - 📝 Changelogs are now written in English
+
             ### v1.2.0
-            - 🚀 `Install.exe` — installateur intégré au zip, détecte automatiquement le dossier Playnite, gère install et upgrade
+            - 🚀 `Install.exe` — bundled installer, auto-detects the Playnite Extensions folder, handles both fresh installs and upgrades
 
             ### v1.1.0
-            - ⬇ Notification au démarrage du téléchargement avec statut "en cours"
-            - ✅ Notification de fin d'installation avec suppression automatique du banner "en cours"
-            - ⚠ Notification d'avertissement si l'appmanifest est illisible pendant plus d'1 minute
-            - ⚠ Notification de timeout après 24h de monitoring sans résultat
-            - 🤖 CI/CD automatisée — les releases sont publiées automatiquement à chaque push
+            - ⬇ Notification when a download is queued in Steam
+            - ✅ Notification when installation is complete (removes the in-progress banner)
+            - ⚠ Warning notification if the appmanifest is unreadable for more than 1 minute
+            - ⚠ Timeout notification after 24 h of monitoring with no result
+            - 🤖 CI/CD pipeline — releases are published automatically on every push
 
             ---
 
             ## Installation
-            1. Télécharge `SilentInstall-v${{ steps.version.outputs.VERSION }}-beta.zip`
-            2. Extrais le zip n'importe où
-            3. Lance **`Install.exe`** — il s'occupe du reste ✅
+            1. Download `SilentInstall-v${{ steps.version.outputs.VERSION }}-beta.zip`
+            2. Extract the zip anywhere
+            3. Run **`Install.exe`** — it handles everything ✅
 
-            > Installation manuelle : copie `SilentInstall.dll` et `extension.yaml` dans `%APPDATA%\Playnite\Extensions\SilentInstall\`
+            > **Windows SmartScreen warning?** This is expected for any unsigned executable downloaded from the internet.
+            > Click **More info → Run anyway** to proceed. No code signing certificate is currently used.
+
+            > Manual install: copy `SilentInstall.dll` and `extension.yaml` to `%APPDATA%\Playnite\Extensions\SilentInstall\`
           files: SilentInstall-v${{ steps.version.outputs.VERSION }}-beta.zip
 
       # == Release officielle (main branch) ==================================
@@ -111,22 +118,29 @@ jobs:
           body: |
             ## What's new in v${{ steps.version.outputs.VERSION }}
 
+            ### v1.3.0
+            - 🛡 Added application manifest and assembly metadata to reduce Windows Defender / SmartScreen false positives
+            - 📝 Changelogs are now written in English
+
             ### v1.2.0
-            - 🚀 `Install.exe` — installateur intégré au zip, détecte automatiquement le dossier Playnite, gère install et upgrade
+            - 🚀 `Install.exe` — bundled installer, auto-detects the Playnite Extensions folder, handles both fresh installs and upgrades
 
             ### v1.1.0
-            - ⬇ Notification au démarrage du téléchargement avec statut "en cours"
-            - ✅ Notification de fin d'installation avec suppression automatique du banner "en cours"
-            - ⚠ Notification d'avertissement si l'appmanifest est illisible pendant plus d'1 minute
-            - ⚠ Notification de timeout après 24h de monitoring sans résultat
-            - 🤖 CI/CD automatisée — les releases sont publiées automatiquement à chaque push
+            - ⬇ Notification when a download is queued in Steam
+            - ✅ Notification when installation is complete (removes the in-progress banner)
+            - ⚠ Warning notification if the appmanifest is unreadable for more than 1 minute
+            - ⚠ Timeout notification after 24 h of monitoring with no result
+            - 🤖 CI/CD pipeline — releases are published automatically on every push
 
             ---
 
             ## Installation
-            1. Télécharge `SilentInstall-v${{ steps.version.outputs.VERSION }}.zip`
-            2. Extrais le zip n'importe où
-            3. Lance **`Install.exe`** — il s'occupe du reste ✅
+            1. Download `SilentInstall-v${{ steps.version.outputs.VERSION }}.zip`
+            2. Extract the zip anywhere
+            3. Run **`Install.exe`** — it handles everything ✅
 
-            > Installation manuelle : copie `SilentInstall.dll` et `extension.yaml` dans `%APPDATA%\Playnite\Extensions\SilentInstall\`
+            > **Windows SmartScreen warning?** This is expected for any unsigned executable downloaded from the internet.
+            > Click **More info → Run anyway** to proceed. No code signing certificate is currently used.
+
+            > Manual install: copy `SilentInstall.dll` and `extension.yaml` to `%APPDATA%\Playnite\Extensions\SilentInstall\`
           files: SilentInstall-v${{ steps.version.outputs.VERSION }}.zip

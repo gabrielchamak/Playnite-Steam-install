@@ -7,6 +7,8 @@
     <UseWindowsForms>true</UseWindowsForms>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
-    <!-- No AssemblyVersion/FileVersion — avoids WPF XAML pack URI issues -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Disable auto-generated AssemblyInfo so ours takes precedence -->
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
 </Project>
