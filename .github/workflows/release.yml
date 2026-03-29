@@ -38,6 +38,13 @@ jobs:
       - name: Build installer (Release)
         run: dotnet build Setup/SilentInstallSetup.csproj -c Release --no-restore
 
+      - name: Read version from extension.yaml
+        id: version
+        run: |
+          $line = Get-Content extension.yaml | Where-Object { $_ -match '^Version:' }
+          $ver  = $line -replace '^Version:\s*', ''
+          echo "VERSION=$ver" >> $env:GITHUB_OUTPUT
+
       - name: Package dist
         run: |
           New-Item -ItemType Directory -Force -Path dist          | Out-Null
@@ -47,13 +54,6 @@ jobs:
           Copy-Item "extension.yaml"                            dist\payload\
           # Installer at root, named with version for clarity
           Copy-Item "Setup\bin\Release\net462\Install.exe" "dist\SilentInstall-Setup-v${{ steps.version.outputs.VERSION }}.exe"
-
-      - name: Read version from extension.yaml
-        id: version
-        run: |
-          $line = Get-Content extension.yaml | Where-Object { $_ -match '^Version:' }
-          $ver  = $line -replace '^Version:\s*', ''
-          echo "VERSION=$ver" >> $env:GITHUB_OUTPUT
 
       # == Pre-release (dev branch) ==========================================
       - name: Zip dist (beta)
