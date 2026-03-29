@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -67,8 +68,8 @@ namespace SilentInstall.Installers
                 WriteAppManifest(acfPath, game.GameId, installDir);
                 SilentLogger.Info($"[{game.Name}] ACF written: {acfPath}");
 
-                RestartSteamSilently();
-                SilentLogger.Info($"[{game.Name}] Steam restarted silently.");
+                TriggerDownloadOrRestart(libraryPath, game.GameId);
+                SilentLogger.Info($"[{game.Name}] Download trigger complete.");
 
                 api.Notifications.Add(new NotificationMessage(
                     $"si-steam-{game.GameId}",
@@ -117,8 +118,55 @@ namespace SilentInstall.Installers
         }
 
         /// <summary>
+        /// Tries to trigger the download without restarting Steam first.
+        /// Modern Steam (post ~2022) watches steamapps/ for new ACF files and
+        /// may pick them up while running when the downloads page is opened.
+        ///
+        /// Strategy:
+        ///   1. Open steam://open/downloads (may trigger a rescan)
+        ///   2. Wait up to 20 seconds watching the downloading/ folder for activity
+        ///   3. If activity detected → no restart needed ✅
+        ///   4. If no activity → fall back to full restart
+        /// </summary>
+        private static void TriggerDownloadOrRestart(string steamAppsPath, string appId)
+        {
+            SilentLogger.Info($"[AppID {appId}] Attempting no-restart trigger via steam://open/downloads…");
+
+            // Step 1: open the downloads page — may cause Steam to rescan steamapps/
+            Process.Start("steam://open/downloads");
+
+            // Step 2: watch for activity in steamapps/downloading/<appid>/
+            var downloadingDir = Path.Combine(steamAppsPath, "downloading", appId);
+            var steamRoot      = GetSteamRootPath();
+            var downloadingDef = steamRoot != null
+                ? Path.Combine(steamRoot, "steamapps", "downloading", appId)
+                : null;
+
+            var deadline = DateTime.Now.AddSeconds(20);
+            while (DateTime.Now < deadline)
+            {
+                Thread.Sleep(2000);
+
+                bool activityLib = Directory.Exists(downloadingDir) &&
+                    new DirectoryInfo(downloadingDir).EnumerateFiles("*", SearchOption.AllDirectories).Any();
+                bool activityDef = downloadingDef != null && Directory.Exists(downloadingDef) &&
+                    new DirectoryInfo(downloadingDef).EnumerateFiles("*", SearchOption.AllDirectories).Any();
+
+                if (activityLib || activityDef)
+                {
+                    SilentLogger.Info($"[AppID {appId}] Download started without restart ✅ (lib={activityLib} def={activityDef})");
+                    return; // no restart needed
+                }
+            }
+
+            // Step 3: no activity detected — Steam didn't pick up the ACF; restart required
+            SilentLogger.Info($"[AppID {appId}] No activity detected — falling back to Steam restart…");
+            RestartSteamSilently();
+        }
+
+        /// <summary>
         /// Shuts down Steam completely then restarts it silently (system tray only).
-        /// This is required because Steam only reads appmanifest files at startup.
+        /// Fallback used when the no-restart trigger doesn't work.
         /// </summary>
         private static void RestartSteamSilently()
         {
@@ -159,7 +207,7 @@ namespace SilentInstall.Installers
                 CreateNoWindow  = true
             });
 
-            // Open the downloads page to trigger Steam's download queue processing
+            // Open downloads page to flush the queue
             Thread.Sleep(4000);
             Process.Start("steam://open/downloads");
         }
