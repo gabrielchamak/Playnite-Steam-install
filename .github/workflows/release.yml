@@ -76,10 +76,18 @@ jobs:
 
             ## What's new in v${{ steps.version.outputs.VERSION }}
 
+            ### v1.2.5
+            - 🌐 Fixed install directory corruption for non-English games (e.g. Hogwarts Legacy showing Cyrillic) — Steam API now forced to English (`cc=us&l=english`)
+            - 🔧 Fixed UTF-8 encoding on Steam API response
+
             ### v1.2.4
             - 📂 Library picker at install time — choose which Steam library to install to when multiple are available
             - 📊 Real download progress — notification updates with percentage and GB downloaded/total
             - 📋 Dedicated log file — `SilentInstall.log` in the plugin data directory (rotates at 1 MB)
+
+            ### v1.2.5
+            - 🌐 Fixed install directory corruption for non-English games (e.g. Hogwarts Legacy showing Cyrillic) — Steam API now forced to English (`cc=us&l=english`)
+            - 🔧 Fixed UTF-8 encoding on Steam API response
 
             ### v1.2.4
             - 📊 Real download progress using `steamapps/downloading/<appid>/` folder size vs `BytesToDownload` — updates live every 5 seconds instead of being stuck at 0%
@@ -139,10 +147,18 @@ jobs:
           body: |
             ## What's new in v${{ steps.version.outputs.VERSION }}
 
+            ### v1.2.5
+            - 🌐 Fixed install directory corruption for non-English games (e.g. Hogwarts Legacy showing Cyrillic) — Steam API now forced to English (`cc=us&l=english`)
+            - 🔧 Fixed UTF-8 encoding on Steam API response
+
             ### v1.2.4
             - 📂 Library picker at install time — choose which Steam library to install to when multiple are available
             - 📊 Real download progress — notification updates with percentage and GB downloaded/total
             - 📋 Dedicated log file — `SilentInstall.log` in the plugin data directory (rotates at 1 MB)
+
+            ### v1.2.5
+            - 🌐 Fixed install directory corruption for non-English games (e.g. Hogwarts Legacy showing Cyrillic) — Steam API now forced to English (`cc=us&l=english`)
+            - 🔧 Fixed UTF-8 encoding on Steam API response
 
             ### v1.2.4
             - 📊 Real download progress using `steamapps/downloading/<appid>/` folder size vs `BytesToDownload` — updates live every 5 seconds instead of being stuck at 0%
