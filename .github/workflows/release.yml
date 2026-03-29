@@ -57,6 +57,17 @@ jobs:
           tag_name: v${{ steps.version.outputs.VERSION }}
           name: Silent Install v${{ steps.version.outputs.VERSION }}
           body: |
+            ## What's new in v${{ steps.version.outputs.VERSION }}
+
+            ### v1.1.0
+            - ⬇ Notification au démarrage du téléchargement avec statut "en cours"
+            - ✅ Notification de fin d'installation avec suppression automatique du banner "en cours"
+            - ⚠ Notification d'avertissement si l'appmanifest est illisible pendant plus d'1 minute
+            - ⚠ Notification de timeout après 24h de monitoring sans résultat
+            - 🤖 CI/CD automatisée — les releases sont désormais publiées automatiquement à chaque push
+
+            ---
+
             ## Installation
             1. Download `SilentInstall-v${{ steps.version.outputs.VERSION }}.zip`
             2. Extract to `%APPDATA%\Roaming\Playnite\Extensions\SilentInstall\`
