@@ -29,14 +29,21 @@ jobs:
       - name: Restore packages
         run: dotnet restore SilentInstall.csproj
 
-      - name: Build (Release)
+      - name: Build plugin (Release)
         run: dotnet build SilentInstall.csproj -c Release --no-restore
+
+      - name: Restore installer packages
+        run: dotnet restore Setup/SilentInstallSetup.csproj
+
+      - name: Build installer (Release)
+        run: dotnet build Setup/SilentInstallSetup.csproj -c Release --no-restore
 
       - name: Package dist
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item "bin\Release\net462\SilentInstall.dll" dist\
-          Copy-Item "extension.yaml" dist\
+          Copy-Item "bin\Release\net462\SilentInstall.dll"     dist\
+          Copy-Item "extension.yaml"                            dist\
+          Copy-Item "Setup\bin\Release\net462\Install.exe"     dist\
 
       - name: Read version from extension.yaml
         id: version
@@ -59,18 +66,23 @@ jobs:
           body: |
             ## What's new in v${{ steps.version.outputs.VERSION }}
 
+            ### v1.2.0
+            - 🚀 `Install.exe` — installateur intégré au zip, détecte automatiquement le dossier Playnite, gère install et upgrade
+
             ### v1.1.0
             - ⬇ Notification au démarrage du téléchargement avec statut "en cours"
             - ✅ Notification de fin d'installation avec suppression automatique du banner "en cours"
             - ⚠ Notification d'avertissement si l'appmanifest est illisible pendant plus d'1 minute
             - ⚠ Notification de timeout après 24h de monitoring sans résultat
-            - 🤖 CI/CD automatisée — les releases sont désormais publiées automatiquement à chaque push
+            - 🤖 CI/CD automatisée — les releases sont publiées automatiquement à chaque push
 
             ---
 
             ## Installation
-            1. Download `SilentInstall-v${{ steps.version.outputs.VERSION }}.zip`
-            2. Extract to `%APPDATA%\Roaming\Playnite\Extensions\SilentInstall\`
-            3. Restart Playnite
+            1. Télécharge `SilentInstall-v${{ steps.version.outputs.VERSION }}.zip`
+            2. Extrais le zip n'importe où
+            3. Lance **`Install.exe`** — il s'occupe du reste ✅
+
+            > Installation manuelle : copie `SilentInstall.dll` et `extension.yaml` dans `%APPDATA%\Playnite\Extensions\SilentInstall\`
           files: SilentInstall-v${{ steps.version.outputs.VERSION }}.zip
           make_latest: true

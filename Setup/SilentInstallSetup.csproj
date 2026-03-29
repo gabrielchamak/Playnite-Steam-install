@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net462</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>Install</AssemblyName>
+    <RootNamespace>SilentInstallSetup</RootNamespace>
+    <UseWindowsForms>true</UseWindowsForms>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <!-- No AssemblyVersion/FileVersion — avoids WPF XAML pack URI issues -->
+  </PropertyGroup>
+</Project>
