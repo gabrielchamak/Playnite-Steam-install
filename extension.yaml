@@ -1,7 +1,7 @@
 Id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
 Name: Silent Install
 Author: gabrielchamak
-Version: 1.2.5
+Version: 1.2.6
 Module: SilentInstall.dll
 Type: GenericPlugin
 Links:

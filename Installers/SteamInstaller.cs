@@ -50,6 +50,7 @@ namespace SilentInstall.Installers
 
                 SilentLogger.Info($"[{game.Name}] Preparing install in: {libraryPath}");
                 ValidateLibraryPath(libraryPath);
+                CheckDiskSpace(libraryPath, game.Name);
 
                 // Make sure this library is registered in Steam's libraryfolders.vdf
                 EnsureSteamLibraryRegistered(libraryPath);
@@ -70,6 +71,20 @@ namespace SilentInstall.Installers
 
                 TriggerDownloadOrRestart(libraryPath, game.GameId);
                 SilentLogger.Info($"[{game.Name}] Download trigger complete.");
+
+                // Warn if low disk space (not a hard block, but likely to fail for large games)
+                try
+                {
+                    var drive  = new DriveInfo(Path.GetPathRoot(libraryPath));
+                    var freeGb = drive.AvailableFreeSpace / 1_073_741_824.0;
+                    if (freeGb < 5.0)
+                        api.Notifications.Add(new NotificationMessage(
+                            $"si-steam-diskwarn-{game.GameId}",
+                            $"⚠ {game.Name} — only {freeGb:F1} GB free on {Path.GetPathRoot(libraryPath)?.TrimEnd('\\')}. " +
+                            "Download may fail if the game is large.",
+                            NotificationType.Error));
+                }
+                catch { }
 
                 api.Notifications.Add(new NotificationMessage(
                     $"si-steam-{game.GameId}",
@@ -97,6 +112,38 @@ namespace SilentInstall.Installers
             if (!Directory.Exists(libraryPath))
                 throw new InvalidOperationException(
                     $"steamapps folder not found: {libraryPath}");
+        }
+
+        /// <summary>
+        /// Checks that the target library drive has enough free space.
+        /// Throws if less than 1 GB (hard block) — Steam can't even stage a download.
+        /// Warns in the log if less than 5 GB (low but not blocking).
+        /// </summary>
+        private static void CheckDiskSpace(string libraryPath, string gameName)
+        {
+            try
+            {
+                var drive    = new DriveInfo(Path.GetPathRoot(libraryPath));
+                var freeGb   = drive.AvailableFreeSpace / 1_073_741_824.0;
+                var driveName = Path.GetPathRoot(libraryPath)?.TrimEnd('\\');
+
+                SilentLogger.Info($"[{gameName}] Disk space on {driveName}: {freeGb:F1} GB free");
+
+                if (freeGb < 1.0)
+                    throw new InvalidOperationException(
+                        $"Not enough disk space on {driveName} ({freeGb:F1} GB free). " +
+                        "At least 1 GB is required to start a download.");
+
+                if (freeGb < 5.0)
+                    SilentLogger.Warn($"[{gameName}] Low disk space on {driveName}: only {freeGb:F1} GB free. " +
+                        "The download may fail if the game is large.");
+            }
+            catch (InvalidOperationException) { throw; } // re-throw our own
+            catch (Exception ex)
+            {
+                SilentLogger.Warn($"[{gameName}] Could not check disk space: {ex.Message}");
+                // Non-critical — don't block install if we can't check
+            }
         }
 
         /// <summary>

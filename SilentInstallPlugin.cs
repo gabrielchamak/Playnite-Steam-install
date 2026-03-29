@@ -162,6 +162,24 @@ namespace SilentInstall
 
                         var stateFlags = int.Parse(flagMatch.Groups[1].Value);
 
+                        // ── Check for Steam error states ──────────────────────
+                        // StateFlags is a bitmask; some bits indicate failure conditions.
+                        // FilesCorrupt=128, FilesMissing=32, StateInvalid=0
+                        // Also check UpdateResult field (non-zero = Steam reported an error)
+                        var errorState = DetectSteamError(content, stateFlags, gameName);
+                        if (errorState != null)
+                        {
+                            SilentLogger.Error($"[{gameName}] Steam error: {errorState}");
+                            // Clean up the ACF and stop monitoring
+                            try { System.IO.File.Delete(acfPath); } catch { }
+                            _api.Notifications.Remove(InProgressNotifId);
+                            _api.Notifications.Add(new NotificationMessage(
+                                $"si-steam-err-{Game.GameId}",
+                                $"❌ {gameName} — {errorState}",
+                                NotificationType.Error));
+                            return;
+                        }
+
                         // ── Download in progress — show real percentage ───────
                         if (stateFlags != 4)
                         {
@@ -224,6 +242,59 @@ namespace SilentInstall
                 }
 
             }, token);
+        }
+
+        /// <summary>
+        /// Analyses the ACF content and StateFlags for known Steam error conditions.
+        /// Returns a human-readable error message, or null if no error detected.
+        ///
+        /// StateFlags bitmask reference:
+        ///   0=Invalid  4=FullyInstalled  32=FilesMissing  128=FilesCorrupt
+        ///   256=UpdateRunning  512=UpdatePaused  1024=UpdateStarted
+        /// UpdateResult field: non-zero = Steam reported an error during the last operation.
+        /// </summary>
+        private static string DetectSteamError(string acfContent, int stateFlags, string gameName)
+        {
+            // StateInvalid — ACF is in a broken state
+            if (stateFlags == 0)
+                return "Steam set the manifest to an invalid state (StateFlags=0). Check Steam's download queue.";
+
+            // FilesCorrupt bit (128) set without being fully installed
+            if ((stateFlags & 128) != 0 && stateFlags != 4)
+                return "Steam reported corrupt files (StateFlags has FilesCorrupt bit). " +
+                       "Try verifying integrity in Steam.";
+
+            // FilesMissing bit (32) set — Steam couldn't find expected files
+            if ((stateFlags & 32) != 0 && stateFlags != 4)
+                return "Steam reported missing files (StateFlags has FilesMissing bit). " +
+                       "Check disk space and permissions.";
+
+            // UpdateResult field — non-zero means Steam encountered an error
+            var resultMatch = System.Text.RegularExpressions.Regex.Match(
+                acfContent, ""UpdateResult"\s*"(\d+)"");
+            if (resultMatch.Success)
+            {
+                var result = int.Parse(resultMatch.Groups[1].Value);
+                if (result != 0)
+                {
+                    // Known UpdateResult codes
+                    var reason = result switch
+                    {
+                        2  => "No connection to Steam content servers",
+                        6  => "Disk write error — check permissions and free space",
+                        7  => "Content still encrypted (game not yet released or region locked)",
+                        11 => "Disk write error (disk full or permissions issue)",
+                        _  => $"Steam reported error code {result}"
+                    };
+                    SilentLogger.Warn($"[{gameName}] UpdateResult={result}: {reason}");
+                    // Only treat as fatal if we're clearly not progressing
+                    // (UpdateResult is sometimes transiently non-zero mid-download)
+                    if (result == 6 || result == 11)
+                        return $"Disk error: {reason}. Free up space and retry.";
+                }
+            }
+
+            return null; // no error
         }
 
         /// <summary>
