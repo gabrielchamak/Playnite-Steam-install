@@ -67,6 +67,7 @@ namespace SilentInstall
         private readonly PluginSettings _settings;
         private readonly IPlayniteAPI   _api;
         private System.Threading.CancellationTokenSource _cts;
+        private bool _installCompleted = false;
 
         public SilentSteamInstallController(Game game, PluginSettings settings, IPlayniteAPI api)
             : base(game)
