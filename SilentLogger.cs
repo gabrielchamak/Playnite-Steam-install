@@ -30,6 +30,7 @@ namespace SilentInstall
 
                 Info("════════════════════════════════════════");
                 Info("Silent Install — session started");
+                Info($"Log file: {_logPath}");
                 Info("════════════════════════════════════════");
             }
             catch { /* logging must never crash the plugin */ }

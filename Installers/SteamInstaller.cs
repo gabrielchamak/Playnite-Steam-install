@@ -72,7 +72,7 @@ namespace SilentInstall.Installers
 
                 api.Notifications.Add(new NotificationMessage(
                     $"si-steam-{game.GameId}",
-                    $"⬇ {game.Name} — queued in Steam. Monitoring until complete…",
+                    $"⬇ {game.Name} — queued in Steam. Monitoring until complete… | Log: %APPDATA%\Playnite\ExtensionsData\a1b2c3d4-e5f6-7890-abcd-ef1234567890\SilentInstall.log",
                     NotificationType.Info));
             }
             catch (Exception ex)
