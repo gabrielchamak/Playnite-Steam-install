@@ -1,0 +1,60 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # build.bat pre-creates obj/ to avoid a WPF XAML pack URI bug
+      - name: Pre-create obj directory
+        run: New-Item -ItemType Directory -Force -Path obj | Out-Null
+
+      - name: Restore packages
+        run: dotnet restore SilentInstall.csproj
+
+      - name: Build (Release)
+        run: dotnet build SilentInstall.csproj -c Release --no-restore
+
+      - name: Package dist
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item "bin\Release\net462\SilentInstall.dll" dist\
+          Copy-Item "extension.yaml" dist\
+
+      - name: Read version from extension.yaml
+        id: version
+        run: |
+          $line = Get-Content extension.yaml | Where-Object { $_ -match '^Version:' }
+          $ver  = $line -replace '^Version:\s*', ''
+          echo "VERSION=$ver" >> $env:GITHUB_OUTPUT
+
+      - name: Zip dist
+        run: |
+          Compress-Archive -Path dist\* `
+            -DestinationPath "SilentInstall-v${{ steps.version.outputs.VERSION }}.zip" `
+            -Force
+
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.VERSION }}
+          name: Silent Install v${{ steps.version.outputs.VERSION }}
+          body: |
+            ## Installation
+            1. Download `SilentInstall-v${{ steps.version.outputs.VERSION }}.zip`
+            2. Extract to `%APPDATA%\Roaming\Playnite\Extensions\SilentInstall\`
+            3. Restart Playnite
+          files: SilentInstall-v${{ steps.version.outputs.VERSION }}.zip
+          make_latest: true
