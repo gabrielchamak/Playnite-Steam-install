@@ -9,6 +9,12 @@
     <Nullable>disable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <!-- Exclude the Setup installer project — it has its own AssemblyInfo -->
+    <Compile Remove="Setup\**" />
+    <EmbeddedResource Remove="Setup\**" />
+    <None Remove="Setup\**" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="PlayniteSDK" Version="6.10.0" ExcludeAssets="runtime" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Net.Http" />
