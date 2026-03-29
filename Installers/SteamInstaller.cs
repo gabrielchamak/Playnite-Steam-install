@@ -166,25 +166,44 @@ namespace SilentInstall.Installers
 
         /// <summary>
         /// Queries the Steam Store API to get the official installation directory name.
-        /// Falls back to the game name from Playnite if the API is unreachable.
+        ///
+        /// The Steam Store API returns the *localized* game name which can be in any
+        /// language (Russian, Chinese, etc.) — unsuitable as a directory name.
+        /// We sanitize it and fall back to the Playnite name if it looks garbled.
         /// </summary>
         private static string FetchInstallDirFromSteamApi(string appId, string fallbackName)
         {
             try
             {
-                var url = $"https://store.steampowered.com/api/appdetails?appids={appId}&filters=basic";
+                var url = $"https://store.steampowered.com/api/appdetails?appids={appId}&filters=basic&cc=us&l=english";
                 using (var client = new WebClient())
                 {
                     client.Headers.Add("User-Agent", "Mozilla/5.0");
+                    client.Encoding = System.Text.Encoding.UTF8;
                     var json  = client.DownloadString(url);
-                    var match = Regex.Match(json, "\"name\"\\s*:\\s*\"([^\"]+)\"");
+                    var match = Regex.Match(json, "\"name\"\s*:\s*\"([^\"]+)\"");
                     if (match.Success)
-                        return SanitizeDirectoryName(match.Groups[1].Value);
+                    {
+                        var apiName = SanitizeDirectoryName(match.Groups[1].Value);
+                        // Reject the result if it contains non-ASCII characters —
+                        // that means the API returned a localized (non-English) name
+                        // which would be wrong as a directory name on Windows.
+                        if (!string.IsNullOrWhiteSpace(apiName) && IsAsciiSafe(apiName))
+                            return apiName;
+                    }
                 }
             }
             catch { /* fall through to fallback */ }
 
             return SanitizeDirectoryName(fallbackName);
+        }
+
+        /// <summary>Returns true if the string contains only ASCII printable characters.</summary>
+        private static bool IsAsciiSafe(string s)
+        {
+            foreach (char c in s)
+                if (c > 127) return false;
+            return true;
         }
 
         /// <summary>
