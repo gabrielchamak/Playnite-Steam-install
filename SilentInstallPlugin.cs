@@ -233,36 +233,84 @@ namespace SilentInstall
         }
 
         /// <summary>
-        /// Reads BytesDownloaded / BytesToDownload from the ACF and updates
-        /// the in-progress notification with a percentage + GB progress.
-        /// Only fires when the percentage actually changes to avoid notification spam.
+        /// Tracks real download progress by measuring steamapps/downloading/appid/ folder size.
+        /// Steam writes compressed chunks there in real-time; BytesToDownload is the total compressed size.
+        /// Falls back to ACF BytesDownloaded (checkpoint value) as a secondary source.
         /// </summary>
         private void TryUpdateProgress(string acfContent, string gameName, ref int lastPct)
         {
-            var dlMatch    = System.Text.RegularExpressions.Regex.Match(acfContent, "\"BytesDownloaded\"\\s*\"(\\d+)\"");
             var totalMatch = System.Text.RegularExpressions.Regex.Match(acfContent, "\"BytesToDownload\"\\s*\"(\\d+)\"");
-
-            if (!dlMatch.Success || !totalMatch.Success) return;
-
-            var downloaded = long.Parse(dlMatch.Groups[1].Value);
-            var total      = long.Parse(totalMatch.Groups[1].Value);
-
+            if (!totalMatch.Success) return;
+            var total = long.Parse(totalMatch.Groups[1].Value);
             if (total <= 0) return;
+            var totalGb = total / 1_073_741_824.0;
 
-            var pct = (int)(downloaded * 100L / total);
-            if (pct == lastPct) return; // no change — skip update
+            // ── Measure the downloading/ staging folder in real-time ──────────
+            // Steam writes to steamapps/downloading/<appid>/ on ANY library (default or secondary).
+            var downloadingInLib = System.IO.Path.Combine(_targetLibraryPath, "downloading", Game.GameId);
+            var steamRoot        = GetSteamRootFromRegistry();
+            var downloadingInDef = steamRoot != null
+                ? System.IO.Path.Combine(steamRoot, "steamapps", "downloading", Game.GameId)
+                : null;
+            long folderBytesLib = GetDirectorySize(downloadingInLib);
+            long folderBytesDef = downloadingInDef != null ? GetDirectorySize(downloadingInDef) : 0L;
+            long folderBytes    = Math.Max(folderBytesLib, folderBytesDef);
 
+            // ── Fallback: ACF BytesDownloaded (Steam checkpoint value) ────────
+            var dlMatch = System.Text.RegularExpressions.Regex.Match(acfContent, "\"BytesDownloaded\"\\s*\"(\\d+)\"");
+            long acfDownloaded = dlMatch.Success ? long.Parse(dlMatch.Groups[1].Value) : 0L;
+
+            long downloaded = Math.Max(folderBytes, acfDownloaded);
+
+            SilentLogger.Info($"[{gameName}] Scan — lib={folderBytesLib} def={folderBytesDef} acf={acfDownloaded} total={total}");
+
+            if (downloaded <= 0)
+            {
+                if (lastPct == -1)
+                {
+                    lastPct = 0;
+                    _api.Notifications.Remove(InProgressNotifId);
+                    _api.Notifications.Add(new NotificationMessage(
+                        InProgressNotifId,
+                        $"⬇ {gameName} — downloading…  ({totalGb:F1} GB total)",
+                        NotificationType.Info));
+                }
+                return;
+            }
+
+            var pct = Math.Min(99, (int)(downloaded * 100L / total));
+            if (pct == lastPct) return;
             lastPct = pct;
-            var dlGb    = downloaded / 1_073_741_824.0;
-            var totalGb = total      / 1_073_741_824.0;
-
+            var dlGb = downloaded / 1_073_741_824.0;
             SilentLogger.Info($"[{gameName}] Progress: {pct}% ({dlGb:F2} / {totalGb:F2} GB)");
-
             _api.Notifications.Remove(InProgressNotifId);
             _api.Notifications.Add(new NotificationMessage(
                 InProgressNotifId,
                 $"⬇ {gameName} — {pct}%  ({dlGb:F1} / {totalGb:F1} GB)",
                 NotificationType.Info));
+        }
+
+        private static string GetSteamRootFromRegistry()
+        {
+            try
+            {
+                using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Valve\Steam")
+                    ?? Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Valve\Steam"))
+                    return key?.GetValue("InstallPath") as string;
+            }
+            catch { return null; }
+        }
+
+        private static long GetDirectorySize(string path)
+        {
+            if (!System.IO.Directory.Exists(path)) return 0L;
+            try
+            {
+                return new System.IO.DirectoryInfo(path)
+                    .EnumerateFiles("*", System.IO.SearchOption.AllDirectories)
+                    .Sum(f => { try { return f.Length; } catch { return 0L; } });
+            }
+            catch { return 0L; }
         }
 
         public override void Dispose()
