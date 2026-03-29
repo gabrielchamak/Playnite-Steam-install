@@ -1,0 +1,35 @@
+AddonId: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+Packages:
+  - Version: 1.2.5
+    RequiredApiVersion: 6.10.0
+    ReleaseDate: 2026-03-30
+    PackageUrl: https://github.com/gabrielchamak/Playnite-Steam-install/releases/download/v1.2.5/SilentInstall_v1.2.5.pext
+    Changelog:
+      - Try to trigger download without restarting Steam (falls back to restart if needed)
+      - Real download progress showing GB written to disk
+      - Dedicated log file in Playnite ExtensionsData folder
+      - ACF deleted after install to prevent Steam auto-reinstalling on uninstall
+      - Library picker dialog in Desktop mode (skipped in Fullscreen)
+      - UTF-8 fix for non-ASCII game names (Hogwarts Legacy etc.)
+  - Version: 1.2.3
+    RequiredApiVersion: 6.10.0
+    ReleaseDate: 2026-03-29
+    PackageUrl: https://github.com/gabrielchamak/Playnite-Steam-install/releases/download/v1.2.3/SilentInstall_v1.2.3.pext
+    Changelog:
+      - ACF cleanup on cancel or failure
+      - Fixed installer filename versioning
+      - Fixed uninstall controller to use Playnite stored install directory
+  - Version: 1.2.2
+    RequiredApiVersion: 6.10.0
+    ReleaseDate: 2026-03-29
+    PackageUrl: https://github.com/gabrielchamak/Playnite-Steam-install/releases/download/v1.2.2/SilentInstall_v1.2.2.pext
+    Changelog:
+      - Bundled Install.exe installer
+      - Application manifest and metadata to reduce SmartScreen false positives
+  - Version: 1.1.0
+    RequiredApiVersion: 6.10.0
+    ReleaseDate: 2026-03-29
+    PackageUrl: https://github.com/gabrielchamak/Playnite-Steam-install/releases/download/v1.1.0/SilentInstall_v1.1.0.pext
+    Changelog:
+      - Notifications for download start, completion, errors and timeout
+      - CI/CD pipeline for automatic releases

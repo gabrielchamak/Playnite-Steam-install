@@ -1,0 +1,34 @@
+# This file is the manifest to submit to https://github.com/JosefNemec/PlayniteAddonDatabase
+# Submit it as a PR under addons/Generic/SilentInstall_gabrielchamak_Plugin.yaml
+# (rename the file accordingly)
+
+AddonId: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+Type: Generic
+Name: Silent Install
+Author: gabrielchamak
+ShortDescription: Install Steam games silently without leaving Playnite Fullscreen — no popups, no dialogs.
+InstallerManifestUrl: https://raw.githubusercontent.com/gabrielchamak/Playnite-Steam-install/main/installer_manifest.yaml
+SourceUrl: https://github.com/gabrielchamak/Playnite-Steam-install
+Description: >
+  Silent Install intercepts the Install button for Steam games in Playnite and installs them
+  completely in the background. No Steam popups, no leaving Fullscreen mode.
+
+  How it works: creates an appmanifest file that Steam detects automatically and begins
+  downloading. Monitors progress and notifies Playnite when the game is fully installed.
+
+  Features:
+  - Works in both Desktop and Fullscreen (Ubiquity theme) modes
+  - Real download progress shown in Playnite notifications
+  - Auto-detects all your Steam libraries
+  - Library picker in Desktop mode (multiple libraries)
+  - Dedicated log file for troubleshooting
+  - Bundled Install.exe for easy plugin installation and upgrades
+Tags:
+  - Steam
+  - Install
+  - Fullscreen
+Links:
+  - Name: GitHub
+    Url: https://github.com/gabrielchamak/Playnite-Steam-install
+  - Name: Issues
+    Url: https://github.com/gabrielchamak/Playnite-Steam-install/issues

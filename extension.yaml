@@ -1,13 +1,13 @@
 Id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
 Name: Silent Install
-Author: scary
+Author: gabrielchamak
 Version: 1.2.5
 Module: SilentInstall.dll
 Type: GenericPlugin
 Links:
   - Name: GitHub
-    Url: https://github.com/scary/SilentInstall
+    Url: https://github.com/gabrielchamak/Playnite-Steam-install
 Description: >
-  Install Steam and Epic games silently without leaving Playnite Fullscreen.
+  Install Steam games silently without leaving Playnite Fullscreen.
   Works by creating an appmanifest file that Steam detects automatically.
   No popups, no dialogs — just press Install and let it download in the background.

@@ -56,6 +56,16 @@ jobs:
           # Installer at root, named with version for clarity
           Copy-Item "Setup\bin\Release\net462\Install.exe" "dist\SilentInstall-Setup-v${{ steps.version.outputs.VERSION }}.exe"
 
+      - name: Build .pext package (Playnite addon format)
+        run: |
+          # .pext = zip containing DLL + extension.yaml at root (no subdirs)
+          New-Item -ItemType Directory -Force -Path pext_staging | Out-Null
+          Copy-Item "bin\Release\net462\SilentInstall.dll" pext_staging\
+          Copy-Item "extension.yaml"                           pext_staging\
+          Compress-Archive -Path pext_staging\* `
+            -DestinationPath "SilentInstall_v${{ steps.version.outputs.VERSION }}.pext" `
+            -Force
+
       # == Pre-release (dev branch) ==========================================
       - name: Zip dist (beta)
         if: github.ref == 'refs/heads/dev'
@@ -132,7 +142,9 @@ jobs:
             > Click **More info → Run anyway** to proceed. No code signing certificate is currently used.
 
             > Manual install: copy `SilentInstall.dll` and `extension.yaml` to `%APPDATA%\Playnite\Extensions\SilentInstall\`
-          files: SilentInstall-v${{ steps.version.outputs.VERSION }}-beta.zip
+          files: |
+            SilentInstall-v${{ steps.version.outputs.VERSION }}-beta.zip
+            SilentInstall_v${{ steps.version.outputs.VERSION }}.pext
 
       # == Release officielle (main branch) ==================================
       - name: Zip dist (stable)
@@ -209,4 +221,43 @@ jobs:
             > Click **More info → Run anyway** to proceed. No code signing certificate is currently used.
 
             > Manual install: copy `SilentInstall.dll` and `extension.yaml` to `%APPDATA%\Playnite\Extensions\SilentInstall\`
-          files: SilentInstall-v${{ steps.version.outputs.VERSION }}.zip
+          files: |
+            SilentInstall-v${{ steps.version.outputs.VERSION }}.zip
+            SilentInstall_v${{ steps.version.outputs.VERSION }}.pext
+
+      # == Update installer_manifest.yaml in repo (main branch only) ==============
+      - name: Update installer_manifest.yaml
+        if: github.ref == 'refs/heads/main'
+        run: |
+          $ver     = "${{ steps.version.outputs.VERSION }}"
+          $date    = (Get-Date).ToString("yyyy-MM-dd")
+          $pextUrl = "https://github.com/gabrielchamak/Playnite-Steam-install/releases/download/v$ver/SilentInstall_v$ver.pext"
+
+          # Read current manifest
+          $yaml = Get-Content installer_manifest.yaml -Raw
+
+          # Check if this version already exists in the manifest
+          if ($yaml -notmatch "Version: $ver") {
+            # Build new package entry
+            $newEntry = @"
+  - Version: $ver
+    RequiredApiVersion: 6.10.0
+    ReleaseDate: $date
+    PackageUrl: $pextUrl
+    Changelog:
+      - See GitHub release notes
+"@
+            # Insert after "Packages:" line
+            $yaml = $yaml -replace "(Packages:
+)", "`$1$newEntry"
+            Set-Content installer_manifest.yaml $yaml -NoNewline
+          }
+
+      - name: Commit installer_manifest.yaml
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add installer_manifest.yaml
+          git diff --staged --quiet || git commit -m "ci: update installer_manifest.yaml for v${{ steps.version.outputs.VERSION }}"
+          git push
