@@ -99,17 +99,26 @@ namespace SilentInstall
         }
 
         /// <summary>
-        /// Shows a library picker if multiple Steam libraries are available.
-        /// Returns the chosen path, or the default if only one library exists.
-        /// Returns null if the user cancelled.
+        /// Shows a library picker if multiple Steam libraries are available
+        /// and the application is in Desktop mode.
+        /// In Fullscreen mode, ChooseItemWithSearch is not implemented by Playnite —
+        /// we fall back to the default library from settings silently.
+        /// Returns null only if the user explicitly cancels in Desktop mode.
         /// </summary>
         private string SelectLibrary()
         {
             var libs = _settings.DetectedSteamLibraries;
 
-            // Single library — no dialog needed
+            // Single library — no dialog needed regardless of mode
             if (libs.Count <= 1)
                 return _settings.SteamAppsPath;
+
+            // In Fullscreen mode, dialogs are not fully supported — use default library
+            if (_api.ApplicationInfo.Mode == ApplicationMode.Fullscreen)
+            {
+                SilentLogger.Info($"Fullscreen mode — skipping library picker, using default: {_settings.SteamAppsPath}");
+                return _settings.SteamAppsPath;
+            }
 
             var options = libs
                 .Select(l => new GenericItemOption(l.Label, l.Path))
