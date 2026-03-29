@@ -2,7 +2,7 @@ name: Build & Release
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -52,17 +52,62 @@ jobs:
           $ver  = $line -replace '^Version:\s*', ''
           echo "VERSION=$ver" >> $env:GITHUB_OUTPUT
 
-      - name: Zip dist
+      # == Pre-release (dev branch) ==========================================
+      - name: Zip dist (beta)
+        if: github.ref == 'refs/heads/dev'
+        run: |
+          Compress-Archive -Path dist\* `
+            -DestinationPath "SilentInstall-v${{ steps.version.outputs.VERSION }}-beta.zip" `
+            -Force
+
+      - name: Publish pre-release
+        if: github.ref == 'refs/heads/dev'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.VERSION }}-beta
+          name: "Silent Install v${{ steps.version.outputs.VERSION }} — Beta"
+          prerelease: true
+          body: |
+            > ⚠️ **Pre-release** — build automatique depuis `dev`. Non destiné à la production.
+
+            ## What's new in v${{ steps.version.outputs.VERSION }}
+
+            ### v1.2.0
+            - 🚀 `Install.exe` — installateur intégré au zip, détecte automatiquement le dossier Playnite, gère install et upgrade
+
+            ### v1.1.0
+            - ⬇ Notification au démarrage du téléchargement avec statut "en cours"
+            - ✅ Notification de fin d'installation avec suppression automatique du banner "en cours"
+            - ⚠ Notification d'avertissement si l'appmanifest est illisible pendant plus d'1 minute
+            - ⚠ Notification de timeout après 24h de monitoring sans résultat
+            - 🤖 CI/CD automatisée — les releases sont publiées automatiquement à chaque push
+
+            ---
+
+            ## Installation
+            1. Télécharge `SilentInstall-v${{ steps.version.outputs.VERSION }}-beta.zip`
+            2. Extrais le zip n'importe où
+            3. Lance **`Install.exe`** — il s'occupe du reste ✅
+
+            > Installation manuelle : copie `SilentInstall.dll` et `extension.yaml` dans `%APPDATA%\Playnite\Extensions\SilentInstall\`
+          files: SilentInstall-v${{ steps.version.outputs.VERSION }}-beta.zip
+
+      # == Release officielle (main branch) ==================================
+      - name: Zip dist (stable)
+        if: github.ref == 'refs/heads/main'
         run: |
           Compress-Archive -Path dist\* `
             -DestinationPath "SilentInstall-v${{ steps.version.outputs.VERSION }}.zip" `
             -Force
 
-      - name: Create or update GitHub Release
+      - name: Publish release
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.VERSION }}
           name: Silent Install v${{ steps.version.outputs.VERSION }}
+          prerelease: false
+          make_latest: true
           body: |
             ## What's new in v${{ steps.version.outputs.VERSION }}
 
@@ -85,4 +130,3 @@ jobs:
 
             > Installation manuelle : copie `SilentInstall.dll` et `extension.yaml` dans `%APPDATA%\Playnite\Extensions\SilentInstall\`
           files: SilentInstall-v${{ steps.version.outputs.VERSION }}.zip
-          make_latest: true
