@@ -184,7 +184,12 @@ namespace SilentInstall
                             : System.IO.Path.Combine(steamApps, "common", gameName);
 
                         // Delete ACF — Steam won't auto-reinstall if the game is later uninstalled
-                        try { System.IO.File.Delete(acfPath); } catch { }
+                        try
+                        {
+                            System.IO.File.Delete(acfPath);
+                            SilentLogger.Info($"[{gameName}] ACF deleted — Steam has no trace of this game.");
+                        }
+                        catch (Exception delEx) { SilentLogger.Warn($"[{gameName}] Could not delete ACF: {delEx.Message}"); }
 
                         SilentLogger.Info($"[{gameName}] Installation complete → {installDir}");
 
