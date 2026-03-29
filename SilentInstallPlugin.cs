@@ -319,7 +319,6 @@ namespace SilentInstall
             base.Dispose();
         }
     }
-    }
 
     // ── Epic stub ─────────────────────────────────────────────────────────────
 
