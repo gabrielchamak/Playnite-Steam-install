@@ -81,6 +81,9 @@ jobs:
             - 📊 Real download progress — notification updates with percentage and GB downloaded/total
             - 📋 Dedicated log file — `SilentInstall.log` in the plugin data directory (rotates at 1 MB)
 
+            ### v1.2.4
+            - 📊 Real download progress using `steamapps/downloading/<appid>/` folder size vs `BytesToDownload` — updates live every 5 seconds instead of being stuck at 0%
+
             ### v1.2.3
             - 🧹 ACF deleted after successful install — Steam won't auto-reinstall if the game is uninstalled later
             - 🗑 Uninstall action now uses Playnite's stored install directory (ACF is removed post-install)
@@ -140,6 +143,9 @@ jobs:
             - 📂 Library picker at install time — choose which Steam library to install to when multiple are available
             - 📊 Real download progress — notification updates with percentage and GB downloaded/total
             - 📋 Dedicated log file — `SilentInstall.log` in the plugin data directory (rotates at 1 MB)
+
+            ### v1.2.4
+            - 📊 Real download progress using `steamapps/downloading/<appid>/` folder size vs `BytesToDownload` — updates live every 5 seconds instead of being stuck at 0%
 
             ### v1.2.3
             - 🧹 ACF deleted after successful install — Steam won't auto-reinstall if the game is uninstalled later
