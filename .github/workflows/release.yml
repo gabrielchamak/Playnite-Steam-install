@@ -84,6 +84,7 @@ jobs:
             - 💾 Disk space check before install — hard block if < 1 GB free, warning notification if < 5 GB
             - ⚠ Steam error detection — monitors `StateFlags` and `UpdateResult`; stops monitoring and shows a clear error instead of polling indefinitely
             - 🔧 ACF kept after install — Steam now properly tracks the game for updates, overlay and achievements
+            - 🪟 Steam restarts minimized to tray — no more window stealing focus on Moonlight/remote play
             - 🗑 Restored uninstall via Playnite — deletes game files and ACF cleanly
 
             ---
@@ -122,6 +123,7 @@ jobs:
             - 💾 Disk space check before install — hard block if < 1 GB free, warning notification if < 5 GB
             - ⚠ Steam error detection — monitors `StateFlags` and `UpdateResult`; stops monitoring and shows a clear error instead of polling indefinitely
             - 🔧 ACF kept after install — Steam now properly tracks the game for updates, overlay and achievements
+            - 🪟 Steam restarts minimized to tray — no more window stealing focus on Moonlight/remote play
             - 🗑 Restored uninstall via Playnite — deletes game files and ACF cleanly
 
             ---

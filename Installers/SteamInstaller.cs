@@ -244,13 +244,17 @@ namespace SilentInstall.Installers
 
             Thread.Sleep(1500);
 
-            // Restart with -silent (system tray only, no main window)
+            // Restart with -silent -minimized: system tray only, no window flash.
+            // -silent  = don't show main window on startup
+            // -minimized = start minimized to tray (belt + suspenders for Moonlight/remote play)
+            // WindowStyle.Minimized = OS-level hint to not bring window to foreground
             Process.Start(new ProcessStartInfo
             {
                 FileName        = steamExe,
-                Arguments       = "-silent",
-                UseShellExecute = false,
-                CreateNoWindow  = true
+                Arguments       = "-silent -minimized",
+                UseShellExecute = true,   // required for WindowStyle to take effect
+                WindowStyle     = System.Diagnostics.ProcessWindowStyle.Minimized,
+                CreateNoWindow  = false
             });
 
             // Open downloads page to flush the queue
