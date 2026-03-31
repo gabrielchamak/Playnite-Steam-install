@@ -247,112 +247,45 @@ namespace SilentInstall
         /// <summary>
         /// Analyses the ACF content and StateFlags for known Steam error conditions.
         /// Returns a human-readable error message, or null if no error detected.
-        ///
-        /// StateFlags bitmask reference:
-        ///   0=Invalid  4=FullyInstalled  32=FilesMissing  128=FilesCorrupt
-        ///   256=UpdateRunning  512=UpdatePaused  1024=UpdateStarted
-        /// UpdateResult field: non-zero = Steam reported an error during the last operation.
         /// </summary>
         private static string DetectSteamError(string acfContent, int stateFlags, string gameName)
         {
-            // StateInvalid — ACF is in a broken state
             if (stateFlags == 0)
                 return "Steam set the manifest to an invalid state (StateFlags=0). Check Steam's download queue.";
 
-            // FilesCorrupt bit (128) set without being fully installed
             if ((stateFlags & 128) != 0 && stateFlags != 4)
-                return "Steam reported corrupt files (StateFlags has FilesCorrupt bit). " +
-                       "Try verifying integrity in Steam.";
+                return "Steam reported corrupt files (StateFlags has FilesCorrupt bit). Try verifying integrity in Steam.";
 
-            // FilesMissing bit (32) set — Steam couldn't find expected files
             if ((stateFlags & 32) != 0 && stateFlags != 4)
-                return "Steam reported missing files (StateFlags has FilesMissing bit). " +
-                       "Check disk space and permissions.";
+                return "Steam reported missing files (StateFlags has FilesMissing bit). Check disk space and permissions.";
 
-            // UpdateResult field — non-zero means Steam encountered an error
+            // UpdateResult field: non-zero = Steam reported an error during the last operation
             var resultMatch = System.Text.RegularExpressions.Regex.Match(
-                acfContent, ""UpdateResult"\s*"(\d+)"");
+                acfContent, @"""UpdateResult""\s*""(\d+)""");
             if (resultMatch.Success)
             {
                 var result = int.Parse(resultMatch.Groups[1].Value);
                 if (result != 0)
                 {
-                    // Known UpdateResult codes
-                    var reason = result switch
+                    string reason;
+                    switch (result)
                     {
-                        2  => "No connection to Steam content servers",
-                        6  => "Disk write error — check permissions and free space",
-                        7  => "Content still encrypted (game not yet released or region locked)",
-                        11 => "Disk write error (disk full or permissions issue)",
-                        _  => $"Steam reported error code {result}"
-                    };
-                    SilentLogger.Warn($"[{gameName}] UpdateResult={result}: {reason}");
-                    // Only treat as fatal if we're clearly not progressing
-                    // (UpdateResult is sometimes transiently non-zero mid-download)
+                        case 2:  reason = "No connection to Steam content servers"; break;
+                        case 6:  reason = "Disk write error — check permissions and free space"; break;
+                        case 7:  reason = "Content still encrypted (game not released or region locked)"; break;
+                        case 11: reason = "Disk write error (disk full or permissions issue)"; break;
+                        default: reason = string.Format("Steam reported error code {0}", result); break;
+                    }
+                    SilentLogger.Warn(string.Format("[{0}] UpdateResult={1}: {2}", gameName, result, reason));
                     if (result == 6 || result == 11)
-                        return $"Disk error: {reason}. Free up space and retry.";
+                        return string.Format("Disk error: {0}. Free up space and retry.", reason);
                 }
             }
 
-            return null; // no error
+            return null;
         }
 
-        /// <summary>
-        /// Shows download activity by measuring steamapps/downloading/appid/ folder size in real-time.
-        ///
-        /// A percentage is NOT shown because BytesToDownload (compressed) and the folder
-        /// contents (decompressed) are different units — their ratio is always misleading.
-        /// Instead, we show GB written to disk so the user can see real progress without
-        /// a false percentage.
-        /// </summary>
-        private void TryUpdateProgress(string acfContent, string gameName, ref int lastPct)
-        {
-            // Get total download size (compressed) for display
-            var totalMatch = System.Text.RegularExpressions.Regex.Match(acfContent, "\"BytesToDownload\"\\s*\"(\\d+)\"");
-            var totalGbStr = totalMatch.Success
-                ? $" / ~{long.Parse(totalMatch.Groups[1].Value) / 1_073_741_824.0:F1} GB"
-                : string.Empty;
-
-            // Measure staging folder (decompressed writes) — grows live during download
-            var downloadingInLib = System.IO.Path.Combine(_targetLibraryPath, "downloading", Game.GameId);
-            var steamRoot        = GetSteamRootFromRegistry();
-            var downloadingInDef = steamRoot != null
-                ? System.IO.Path.Combine(steamRoot, "steamapps", "downloading", Game.GameId)
-                : null;
-            long folderBytesLib = GetDirectorySize(downloadingInLib);
-            long folderBytesDef = downloadingInDef != null ? GetDirectorySize(downloadingInDef) : 0L;
-            long folderBytes    = Math.Max(folderBytesLib, folderBytesDef);
-
-            var writtenGb = folderBytes / 1_073_741_824.0;
-
-            // Bucket to nearest 0.1 GB to avoid notification spam on every byte change
-            int bucket = (int)(writtenGb * 10);
-            if (bucket == lastPct) return;
-            lastPct = bucket;
-
-            SilentLogger.Info($"[{gameName}] Progress: {writtenGb:F2} GB written (lib={folderBytesLib} def={folderBytesDef})");
-
-            _api.Notifications.Remove(InProgressNotifId);
-            _api.Notifications.Add(new NotificationMessage(
-                InProgressNotifId,
-                folderBytes > 0
-                    ? $"⬇ {gameName} — {writtenGb:F1} GB written{totalGbStr}"
-                    : $"⬇ {gameName} — downloading…{totalGbStr}",
-                NotificationType.Info));
-        }
-
-        private static string GetSteamRootFromRegistry()
-        {
-            try
-            {
-                using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Valve\Steam")
-                    ?? Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Valve\Steam"))
-                    return key?.GetValue("InstallPath") as string;
-            }
-            catch { return null; }
-        }
-
-        private static long GetDirectorySize(string path)
+                private static long GetDirectorySize(string path)
         {
             if (!System.IO.Directory.Exists(path)) return 0L;
             try
