@@ -42,6 +42,16 @@ namespace SilentInstall.Installers
         [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
         private static extern bool IsWindowVisible(IntPtr hWnd);
 
+        // SetWindowPos flags
+        private const int SWP_NOMOVE      = 0x0002;
+        private const int SWP_NOSIZE      = 0x0001;
+        private const int SWP_NOACTIVATE  = 0x0010;
+        private static readonly IntPtr HWND_BOTTOM = new IntPtr(1);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter,
+            int X, int Y, int cx, int cy, uint uFlags);
+
         public static bool CanHandle(Game game) => game.PluginId == SteamPluginId;
 
         /// <summary>
