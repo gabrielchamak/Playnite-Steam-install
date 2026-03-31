@@ -75,13 +75,13 @@ namespace SilentInstall.Installers
                 // Warn if low disk space (not a hard block, but likely to fail for large games)
                 try
                 {
-                    var drive  = new DriveInfo(Path.GetPathRoot(libraryPath));
-                    var freeGb = drive.AvailableFreeSpace / 1_073_741_824.0;
+                    var drive   = new DriveInfo(Path.GetPathRoot(libraryPath));
+                    var freeGb  = drive.AvailableFreeSpace / 1_073_741_824.0;
+                    var driveLbl = Path.GetPathRoot(libraryPath) ?? libraryPath;
                     if (freeGb < 5.0)
                         api.Notifications.Add(new NotificationMessage(
                             $"si-steam-diskwarn-{game.GameId}",
-                            $"⚠ {game.Name} — only {freeGb:F1} GB free on {Path.GetPathRoot(libraryPath)?.TrimEnd('\\')}. " +
-                            "Download may fail if the game is large.",
+                            $"⚠ {game.Name} — only {freeGb:F1} GB free on {driveLbl}. Download may fail if the game is large.",
                             NotificationType.Error));
                 }
                 catch { }
@@ -125,7 +125,7 @@ namespace SilentInstall.Installers
             {
                 var drive    = new DriveInfo(Path.GetPathRoot(libraryPath));
                 var freeGb   = drive.AvailableFreeSpace / 1_073_741_824.0;
-                var driveName = Path.GetPathRoot(libraryPath)?.TrimEnd('\\');
+                var driveName = Path.GetPathRoot(libraryPath) ?? libraryPath;
 
                 SilentLogger.Info($"[{gameName}] Disk space on {driveName}: {freeGb:F1} GB free");
 
