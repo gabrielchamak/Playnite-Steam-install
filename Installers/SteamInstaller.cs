@@ -27,6 +27,9 @@ namespace SilentInstall.Installers
     {
         public static readonly Guid SteamPluginId = Guid.Parse("cb91dfc9-b977-43bf-8e70-55f46e410fab");
 
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
         public static bool CanHandle(Game game) => game.PluginId == SteamPluginId;
 
         /// <summary>
@@ -244,18 +247,41 @@ namespace SilentInstall.Installers
 
             Thread.Sleep(1500);
 
-            // Restart with -silent -minimized: system tray only, no window flash.
-            // -silent  = don't show main window on startup
-            // -minimized = start minimized to tray (belt + suspenders for Moonlight/remote play)
-            // WindowStyle.Minimized = OS-level hint to not bring window to foreground
-            Process.Start(new ProcessStartInfo
+            // Restart Steam silently into the system tray.
+            // -silent    = don't show main window on startup
+            // -minimized = start minimized to tray
+            // -nocachesteam = skip cache verification (faster startup)
+            // We also use the Windows API ShowWindow trick via a delayed minimizer
+            // because Steam ignores WindowStyle hints passed by the parent process.
+            var steamPsi = new ProcessStartInfo
             {
                 FileName        = steamExe,
-                Arguments       = "-silent -minimized",
-                UseShellExecute = true,   // required for WindowStyle to take effect
-                WindowStyle     = System.Diagnostics.ProcessWindowStyle.Minimized,
+                Arguments       = "-silent -minimized -nocachesteam",
+                UseShellExecute = false,
                 CreateNoWindow  = false
-            });
+            };
+            var steamProc = Process.Start(steamPsi);
+
+            // Give Steam ~3 seconds to create its window, then force-minimize it
+            // This handles cases where Steam ignores -silent/-minimized
+            if (steamProc != null)
+            {
+                System.Threading.Tasks.Task.Run(() =>
+                {
+                    Thread.Sleep(3000);
+                    try
+                    {
+                        steamProc.Refresh();
+                        if (!steamProc.HasExited && steamProc.MainWindowHandle != IntPtr.Zero)
+                        {
+                            // SW_MINIMIZE = 6
+                            ShowWindow(steamProc.MainWindowHandle, 6);
+                            SilentLogger.Info("Steam window minimized via ShowWindow API.");
+                        }
+                    }
+                    catch { }
+                });
+            }
 
             // Open downloads page to flush the queue
             Thread.Sleep(4000);
