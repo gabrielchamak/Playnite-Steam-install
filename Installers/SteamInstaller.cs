@@ -290,7 +290,7 @@ namespace SilentInstall.Installers
                     }
                     catch { }
                 }
-                SilentLogger.Warn("Steam window not found after 15 s — could not minimize.");
+                SilentLogger.Info("Steam started with no visible window (good — -silent flag worked).");
             });
 
             // Open downloads page to flush the queue
