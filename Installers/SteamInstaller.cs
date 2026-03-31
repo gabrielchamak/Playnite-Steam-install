@@ -126,6 +126,8 @@ namespace SilentInstall.Installers
             if (!Directory.Exists(libraryPath))
                 throw new InvalidOperationException(
                     $"steamapps folder not found: {libraryPath}");
+
+            SilentLogger.Info($"ValidateLibraryPath OK: {libraryPath}");
         }
 
         /// <summary>
@@ -176,6 +178,8 @@ namespace SilentInstall.Installers
                 "}\n";
 
             File.WriteAllText(acfPath, content);
+            SilentLogger.Info($"ACF written to {acfPath}:");
+            SilentLogger.Info($"  appid={appId}  installdir={installDir}  StateFlags=1026");
         }
 
         /// <summary>
@@ -203,15 +207,23 @@ namespace SilentInstall.Installers
                 ? Path.Combine(steamRoot, "steamapps", "downloading", appId)
                 : null;
 
+            SilentLogger.Info($"[AppID {appId}] Watching for activity:");
+            SilentLogger.Info($"  lib path: {downloadingDir}");
+            SilentLogger.Info($"  def path: {downloadingDef ?? "(no default Steam root)"}");
+
             var deadline = DateTime.Now.AddSeconds(20);
+            int checkNum = 0;
             while (DateTime.Now < deadline)
             {
                 Thread.Sleep(2000);
+                checkNum++;
 
                 bool activityLib = Directory.Exists(downloadingDir) &&
                     new DirectoryInfo(downloadingDir).EnumerateFiles("*", SearchOption.AllDirectories).Any();
                 bool activityDef = downloadingDef != null && Directory.Exists(downloadingDef) &&
                     new DirectoryInfo(downloadingDef).EnumerateFiles("*", SearchOption.AllDirectories).Any();
+
+                SilentLogger.Info($"[AppID {appId}] Check #{checkNum}: libExists={Directory.Exists(downloadingDir)} libActive={activityLib} defActive={activityDef}");
 
                 if (activityLib || activityDef)
                 {
@@ -234,7 +246,7 @@ namespace SilentInstall.Installers
             var steamExe = GetSteamExePath();
             if (steamExe == null || !File.Exists(steamExe)) return;
 
-            // Send shutdown signal
+            SilentLogger.Info($"Sending -shutdown to: {steamExe}");
             Process.Start(new ProcessStartInfo
             {
                 FileName        = steamExe,
@@ -243,18 +255,22 @@ namespace SilentInstall.Installers
                 CreateNoWindow  = true
             });
 
-            // Wait for all Steam processes to fully exit (up to 15 seconds)
+            SilentLogger.Info("Waiting for all steam.exe processes to exit (max 15 s)…");
             var deadline = DateTime.Now.AddSeconds(15);
             while (DateTime.Now < deadline)
             {
                 Thread.Sleep(1000);
-                if (Process.GetProcessesByName("steam").Length == 0) break;
+                var remaining = Process.GetProcessesByName("steam");
+                if (remaining.Length == 0) { SilentLogger.Info("All steam.exe processes exited."); break; }
+                SilentLogger.Info($"  Still running: {remaining.Length} steam.exe process(es)…");
             }
 
-            // Force-kill any remaining Steam processes
-            foreach (var proc in Process.GetProcessesByName("steam"))
+            var stragglers = Process.GetProcessesByName("steam");
+            if (stragglers.Length > 0)
             {
-                try { proc.Kill(); } catch { }
+                SilentLogger.Warn($"Force-killing {stragglers.Length} remaining steam.exe process(es).");
+                foreach (var proc in stragglers)
+                    try { proc.Kill(); SilentLogger.Info($"  Killed PID {proc.Id}"); } catch { }
             }
 
             Thread.Sleep(1500);
@@ -264,6 +280,7 @@ namespace SilentInstall.Installers
             // This means our Process handle is useless for window manipulation.
             // Instead, we poll for the Steam window by its known class name
             // and minimize it directly via FindWindow + ShowWindow.
+            SilentLogger.Info($"Launching Steam: {steamExe} -silent -minimized");
             Process.Start(new ProcessStartInfo
             {
                 FileName        = steamExe,
@@ -271,6 +288,7 @@ namespace SilentInstall.Installers
                 UseShellExecute = false,
                 CreateNoWindow  = true
             });
+            SilentLogger.Info("Steam bootstrapper launched. Starting window suppressor…");
 
             // Background thread: wait for Steam's window to appear, then minimize it.
             // Steam window class name is "vguiPopupWindow" (main) or we search by process name.
@@ -319,29 +337,44 @@ namespace SilentInstall.Installers
         /// </summary>
         private static string FetchInstallDirFromSteamApi(string appId, string fallbackName)
         {
+            var url = $"https://store.steampowered.com/api/appdetails?appids={appId}&filters=basic&cc=us&l=english";
+            SilentLogger.Info($"Fetching installdir from Steam API: {url}");
             try
             {
-                var url = $"https://store.steampowered.com/api/appdetails?appids={appId}&filters=basic&cc=us&l=english";
                 using (var client = new WebClient())
                 {
                     client.Headers.Add("User-Agent", "Mozilla/5.0");
                     client.Encoding = System.Text.Encoding.UTF8;
                     var json  = client.DownloadString(url);
+                    SilentLogger.Info($"Steam API response length: {json.Length} chars");
                     var match = Regex.Match(json, "\"name\"\\s*:\\s*\"([^\"]+)\"");
                     if (match.Success)
                     {
-                        var apiName = SanitizeDirectoryName(match.Groups[1].Value);
-                        // Reject the result if it contains non-ASCII characters —
-                        // that means the API returned a localized (non-English) name
-                        // which would be wrong as a directory name on Windows.
-                        if (!string.IsNullOrWhiteSpace(apiName) && IsAsciiSafe(apiName))
+                        var rawName  = match.Groups[1].Value;
+                        var apiName  = SanitizeDirectoryName(rawName);
+                        var isAscii  = IsAsciiSafe(apiName);
+                        SilentLogger.Info($"Steam API name: '{rawName}' → sanitized: '{apiName}' → ASCII safe: {isAscii}");
+                        if (!string.IsNullOrWhiteSpace(apiName) && isAscii)
+                        {
+                            SilentLogger.Info($"Using API installdir: '{apiName}'");
                             return apiName;
+                        }
+                        SilentLogger.Warn($"API name rejected (non-ASCII or empty) — falling back to Playnite name.");
+                    }
+                    else
+                    {
+                        SilentLogger.Warn("Steam API response did not contain a 'name' field.");
                     }
                 }
             }
-            catch { /* fall through to fallback */ }
+            catch (Exception ex)
+            {
+                SilentLogger.Warn($"Steam API call failed: {ex.Message} — using fallback name.");
+            }
 
-            return SanitizeDirectoryName(fallbackName);
+            var fallback = SanitizeDirectoryName(fallbackName);
+            SilentLogger.Info($"Using fallback installdir: '{fallback}' (from Playnite game name: '{fallbackName}')");
+            return fallback;
         }
 
         /// <summary>Returns true if the string contains only ASCII printable characters.</summary>
@@ -360,21 +393,26 @@ namespace SilentInstall.Installers
         {
             try
             {
+                SilentLogger.Info($"EnsureSteamLibraryRegistered: checking {steamAppsDir}");
                 var steamRoot = GetSteamRootPath();
-                if (steamRoot == null) return;
+                if (steamRoot == null) { SilentLogger.Warn("EnsureSteamLibraryRegistered: Steam root not found."); return; }
 
                 var vdf = Path.Combine(steamRoot, "steamapps", "libraryfolders.vdf");
+                SilentLogger.Info($"libraryfolders.vdf path: {vdf} (exists={File.Exists(vdf)})");
                 if (!File.Exists(vdf)) return;
 
-                // libraryfolders.vdf stores the parent of steamapps (e.g. E:\SteamLibrary)
                 var libraryRoot = Path.GetDirectoryName(steamAppsDir);
                 if (string.IsNullOrEmpty(libraryRoot)) return;
 
                 var content = File.ReadAllText(vdf);
                 var escaped = libraryRoot.Replace("\\", "\\\\");
-                if (content.Contains(escaped)) return; // already registered
 
-                // Find the next available index
+                if (content.Contains(escaped))
+                {
+                    SilentLogger.Info($"Library already registered in libraryfolders.vdf: {libraryRoot}");
+                    return;
+                }
+
                 var maxIdx = 0;
                 foreach (Match m in Regex.Matches(content, "\"(\\d+)\""))
                     if (int.TryParse(m.Groups[1].Value, out int idx) && idx > maxIdx)
@@ -383,9 +421,15 @@ namespace SilentInstall.Installers
                 var entry = $"\t\"{maxIdx + 1}\"\n\t{{\n\t\t\"path\"\t\t\"{escaped}\"\n\t}}\n";
                 var insertAt = content.LastIndexOf('}');
                 if (insertAt > 0)
+                {
                     File.WriteAllText(vdf, content.Insert(insertAt, entry));
+                    SilentLogger.Info($"Library registered in libraryfolders.vdf at index {maxIdx + 1}: {libraryRoot}");
+                }
             }
-            catch { /* non-critical, skip silently */ }
+            catch (Exception ex)
+            {
+                SilentLogger.Warn($"EnsureSteamLibraryRegistered failed (non-critical): {ex.Message}");
+            }
         }
 
         private static string GetSteamExePath()
@@ -400,9 +444,17 @@ namespace SilentInstall.Installers
             {
                 using (var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Valve\Steam")
                     ?? Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Valve\Steam"))
-                    return key?.GetValue("InstallPath") as string;
+                {
+                    var path = key?.GetValue("InstallPath") as string;
+                    SilentLogger.Info($"GetSteamRootPath → {path ?? "(not found in registry)"}");
+                    return path;
+                }
             }
-            catch { return null; }
+            catch (Exception ex)
+            {
+                SilentLogger.Warn($"GetSteamRootPath registry error: {ex.Message}");
+                return null;
+            }
         }
 
         private static string SanitizeDirectoryName(string name)
