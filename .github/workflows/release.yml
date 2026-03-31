@@ -82,7 +82,9 @@ jobs:
             ## What's new in v${{ steps.version.outputs.VERSION }}
 
             - 💾 Disk space check before install — hard block if < 1 GB free, warning notification if < 5 GB
-            - ⚠ Steam error detection — monitors `StateFlags` and `UpdateResult` field; stops monitoring and shows a clear error instead of polling indefinitely
+            - ⚠ Steam error detection — monitors `StateFlags` and `UpdateResult`; stops monitoring and shows a clear error instead of polling indefinitely
+            - 🔧 ACF kept after install — Steam now properly tracks the game for updates, overlay and achievements
+            - 🗑 Restored uninstall via Playnite — deletes game files and ACF cleanly
 
             ---
 
@@ -118,7 +120,9 @@ jobs:
             ## What's new in v${{ steps.version.outputs.VERSION }}
 
             - 💾 Disk space check before install — hard block if < 1 GB free, warning notification if < 5 GB
-            - ⚠ Steam error detection — monitors `StateFlags` and `UpdateResult` field; stops monitoring and shows a clear error instead of polling indefinitely
+            - ⚠ Steam error detection — monitors `StateFlags` and `UpdateResult`; stops monitoring and shows a clear error instead of polling indefinitely
+            - 🔧 ACF kept after install — Steam now properly tracks the game for updates, overlay and achievements
+            - 🗑 Restored uninstall via Playnite — deletes game files and ACF cleanly
 
             ---
 

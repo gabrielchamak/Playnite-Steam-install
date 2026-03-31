@@ -29,6 +29,12 @@ namespace SilentInstall
                 yield return new SilentSteamInstallController(args.Game, _settings, PlayniteApi);
         }
 
+        public override IEnumerable<UninstallController> GetUninstallActions(GetUninstallActionsArgs args)
+        {
+            if (SteamInstaller.CanHandle(args.Game))
+                yield return new SilentSteamUninstallController(args.Game, _settings, PlayniteApi);
+        }
+
         public override IEnumerable<GameMenuItem> GetGameMenuItems(GetGameMenuItemsArgs args)
         {
             if (args.Games.Count != 1) yield break;
@@ -195,14 +201,11 @@ namespace SilentInstall
                             ? System.IO.Path.Combine(steamApps, "common", dirMatch.Groups[1].Value)
                             : System.IO.Path.Combine(steamApps, "common", gameName);
 
-                        // Delete ACF — Steam won't auto-reinstall if the game is later uninstalled
-                        try
-                        {
-                            System.IO.File.Delete(acfPath);
-                            SilentLogger.Info($"[{gameName}] ACF deleted — Steam has no trace of this game.");
-                        }
-                        catch (Exception delEx) { SilentLogger.Warn($"[{gameName}] Could not delete ACF: {delEx.Message}"); }
-
+                        // Leave the ACF intact — Steam needs it to:
+                        // - track the game as installed
+                        // - apply future updates
+                        // - enable Steam Overlay and achievements
+                        // Deletion happens only on explicit uninstall via Playnite.
                         SilentLogger.Info($"[{gameName}] Installation complete → {installDir}");
 
                         _api.Notifications.Remove(InProgressNotifId);
@@ -368,6 +371,61 @@ namespace SilentInstall
             catch { /* non-critical */ }
 
             base.Dispose();
+        }
+    }
+
+    // ── Uninstall controller ──────────────────────────────────────────────────
+
+    public class SilentSteamUninstallController : UninstallController
+    {
+        private readonly PluginSettings _settings;
+        private readonly IPlayniteAPI   _api;
+
+        public SilentSteamUninstallController(Game game, PluginSettings settings, IPlayniteAPI api)
+            : base(game)
+        {
+            Name      = "Silent Uninstall (Steam)";
+            _settings = settings;
+            _api      = api;
+        }
+
+        public override void Uninstall(UninstallActionArgs args)
+        {
+            try
+            {
+                SilentLogger.Info($"[{Game.Name}] Uninstall started.");
+
+                // Use Playnite's stored install directory
+                var gameDir = Game.InstallDirectory;
+                if (!string.IsNullOrEmpty(gameDir) && System.IO.Directory.Exists(gameDir))
+                {
+                    System.IO.Directory.Delete(gameDir, recursive: true);
+                    SilentLogger.Info($"[{Game.Name}] Game directory deleted: {gameDir}");
+                }
+
+                // Delete the ACF so Steam no longer tracks the game as installed
+                var acfPath = System.IO.Path.Combine(_settings.SteamAppsPath, $"appmanifest_{Game.GameId}.acf");
+                try
+                {
+                    if (System.IO.File.Exists(acfPath))
+                    {
+                        System.IO.File.Delete(acfPath);
+                        SilentLogger.Info($"[{Game.Name}] ACF deleted.");
+                    }
+                }
+                catch (Exception ex) { SilentLogger.Warn($"[{Game.Name}] Could not delete ACF: {ex.Message}"); }
+
+                SilentLogger.Info($"[{Game.Name}] Uninstall complete.");
+                InvokeOnUninstalled(new GameUninstalledEventArgs());
+            }
+            catch (Exception ex)
+            {
+                SilentLogger.Error($"[{Game.Name}] Uninstall failed", ex);
+                _api.Notifications.Add(new NotificationMessage(
+                    $"si-steam-uninstall-err-{Game.GameId}",
+                    $"⚠ Failed to uninstall {Game.Name}: {ex.Message}",
+                    NotificationType.Error));
+            }
         }
     }
 
