@@ -7,7 +7,6 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using Microsoft.Win32;
 using Playnite.SDK;
-using Playnite.SDK;
 using Playnite.SDK.Models;
 using SilentInstall.Settings;
 

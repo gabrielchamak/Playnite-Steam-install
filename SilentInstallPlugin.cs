@@ -285,7 +285,54 @@ namespace SilentInstall
             return null;
         }
 
-                private static long GetDirectorySize(string path)
+        private static string GetSteamRootFromRegistry()
+        {
+            try
+            {
+                using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Valve\Steam")
+                    ?? Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Valve\Steam"))
+                    return key?.GetValue("InstallPath") as string;
+            }
+            catch { return null; }
+        }
+
+        private void TryUpdateProgress(string acfContent, string gameName, ref int lastPct)
+        {
+            var totalMatch = System.Text.RegularExpressions.Regex.Match(acfContent, @"""BytesToDownload""\s*""(\d+)""");
+            if (!totalMatch.Success) return;
+            var total = long.Parse(totalMatch.Groups[1].Value);
+            if (total <= 0) return;
+            var totalGb = total / 1_073_741_824.0;
+
+            var downloadingInLib = System.IO.Path.Combine(_targetLibraryPath, "downloading", Game.GameId);
+            var steamRoot        = GetSteamRootFromRegistry();
+            var downloadingInDef = steamRoot != null
+                ? System.IO.Path.Combine(steamRoot, "steamapps", "downloading", Game.GameId)
+                : null;
+            long folderBytesLib = GetDirectorySize(downloadingInLib);
+            long folderBytesDef = downloadingInDef != null ? GetDirectorySize(downloadingInDef) : 0L;
+            long folderBytes    = Math.Max(folderBytesLib, folderBytesDef);
+
+            var dlMatch = System.Text.RegularExpressions.Regex.Match(acfContent, @"""BytesDownloaded""\s*""(\d+)""");
+            long acfDownloaded = dlMatch.Success ? long.Parse(dlMatch.Groups[1].Value) : 0L;
+            long downloaded = Math.Max(folderBytes, acfDownloaded);
+
+            var writtenGb = downloaded / 1_073_741_824.0;
+            int bucket = (int)(writtenGb * 10);
+            if (bucket == lastPct) return;
+            lastPct = bucket;
+
+            SilentLogger.Info(string.Format("[{0}] Progress: {1:F2} GB written (lib={2} def={3})", gameName, writtenGb, folderBytesLib, folderBytesDef));
+            _api.Notifications.Remove(InProgressNotifId);
+            _api.Notifications.Add(new NotificationMessage(
+                InProgressNotifId,
+                downloaded > 0
+                    ? string.Format("⬇ {0} — {1:F1} GB written / ~{2:F1} GB", gameName, writtenGb, totalGb)
+                    : string.Format("⬇ {0} — downloading…  (~{1:F1} GB total)", gameName, totalGb),
+                NotificationType.Info));
+        }
+
+        private static long GetDirectorySize(string path)
         {
             if (!System.IO.Directory.Exists(path)) return 0L;
             try
